@@ -1,0 +1,213 @@
+package scala.bytecode
+
+import org.objectweb.asm.{Opcodes, Type}
+import org.objectweb.asm.tree.{MethodNode,
+			       InsnList,
+			       AbstractInsnNode => Insn,
+			       TryCatchBlockNode}
+import org.objectweb.asm.tree.analysis.{Analyzer,
+					BasicInterpreter,
+					BasicValue,
+					Frame,
+					SourceInterpreter,
+					Value}
+
+import java.util.{Iterator => iterator, List => list}
+import scala.collection.JavaConversions._
+
+/* Wrapper for asm.tree.MethodNode with goodies...
+ * Intent is to make the expression of complex bytecode in scala as pain-free as
+ * possible.
+ */
+class MethodInfo(val cxt: Cxt, val owner: ClassInfo, val node: MethodNode)
+extends MemberInfo[MethodNode, ast.MethodDecl] {
+  def tree = ast.MethodDecl(this)
+
+  def modifiers: List[Symbol] = Cxt.methodModifierAccess.toList map {
+    case (sym, acc) if (acc & node.access) != 0 => Some(sym)
+    case _ => None
+  } filterNot (_.isEmpty) map (_.get)
+
+  def name = node.name
+  def desc = node.desc
+  def verbose =
+    modifiers.map(sym => sym.name).mkString("", " ", " ") +
+    owner.name +"/"+ name + desc
+
+  //change rest to defs???
+
+  def arguments: List[(Int, String)] = {
+    val argTypes = Type.getArgumentTypes(desc).toList
+    argTypes.map(_.getSize).scanLeft(if (is('static)) 0 else 1)(_ + _).init.zip(
+      argTypes.map(_.getDescriptor))
+  }
+
+  def thrown: List[String] =
+    node.exceptions.asInstanceOf[list[String]].toList
+
+  val instructions: asm.RichInsnList = new asm.RichInsnList(node.instructions)
+
+  def apply(changes: MethodInfo.Changes): MethodInfo.Record = {
+    if (changes.maxStack.isDefined)  { node.maxStack = changes.maxStack.get }
+    if (changes.maxLocals.isDefined) { node.maxLocals = changes.maxLocals.get }
+    if (changes.insnSpec.nonEmpty)   { instructions.mutate(changes.insnSpec) }
+    MethodInfo.Record()
+  }
+
+  def apply(transform: MethodInfo.Transform): MethodInfo.Record =
+    apply(transform(this))
+
+  def apply(transforms: MethodInfo.Transform*): List[MethodInfo.Record] =
+    transforms.map(transform => apply(transform(this))).toList
+
+  def abstractStack: List[MethodInfo.Record] =
+    apply(CollapseStackManipulations, AnchorFloatingStmts)
+
+  private lazy val preds: Array[Array[Int]] =
+    Array.fill(instructions.length)(null)
+  private lazy val succs: Array[Array[Int]] =
+    Array.fill(instructions.length)(null)
+
+  private val cfgAnalyzer: Analyzer = new Analyzer(new BasicInterpreter) {
+    override def newControlFlowEdge(p: Int, s: Int) {
+      if (preds(s) == null) preds(s) = Array(p)
+      else if (! (preds(s) contains p)) preds(s) :+= p
+      if (succs(p) == null) succs(p) = Array(s)
+      else if (! (succs(p) contains s)) succs(p) :+= s
+    }
+  }
+
+  /* @return a 3-ple to avoid the need for a wrapper for TryCatchBlockNode;
+   *  first 2-ple is the try range and the second 2-ple is the catch range;
+   *  third element is an optional exception descriptor (None for finally).
+   */
+  val tryCatches: List[((Int, Int), (Int, Int), Option[String])] = {
+    val end = instructions.length
+    node.tryCatchBlocks.asInstanceOf[list[TryCatchBlockNode]].toList map {
+      tcb =>
+	val idx: Insn => Int = instructions indexOf _
+	((idx(tcb.start), idx(tcb.end)), (idx(tcb.handler), end),
+	 if (tcb.`type` == null) None else Some(tcb.`type`))
+    }
+  }
+
+  /* @return a fresh ControlFlowGraph.
+   */
+  lazy val cfg: ControlFlowGraph = new ControlFlowGraph(this) {
+    cfgAnalyzer.analyze(owner.name, node)
+    val bounds: List[(Int, Int)] = {
+      val tryBounds_m1 = tryCatches.map(_._1 match {
+	case (beg, end) => (beg - 1) :: (end - 1) :: Nil
+      } ).flatten
+      val ends = ((1 until instructions.length) filter { idx =>
+	val nps = if (idx < instructions.length - 1) preds(idx + 1) else null
+	val ss = succs(idx)
+        nps == null || nps.length != 1 || nps(0) != idx ||
+        ss == null || ss.length != 1 || ss(0) != idx + 1 ||
+	(tryBounds_m1 contains idx)
+      } ).toList map (_ + 1)
+      (0 :: ends) zip ends
+    }
+    val size = bounds.length
+    val edges: List[((Int, Int), (Int, Int))] = bounds.map(b =>
+      predecessors(b._1) map (_ -> b)).flatten
+
+    def predecessors(beg: Int): List[(Int, Int)] = preds(beg) match {
+      case null => Nil
+      case ps => bounds filter { case (_, end) => ps contains end - 1 }
+    }
+
+    def successors(end: Int): List[(Int, Int)] = succs(end - 1) match {
+      case null => Nil
+      case ss => bounds filter { case (beg, _) => ss contains beg }
+    }
+  }
+
+  import asm._
+  def out(ps: java.io.PrintStream, indent: Int) {
+    ps append owner.name
+    ps append '/'
+    ps append name
+    ps append desc
+    ps append '\n'
+    val idxstrlen = (String valueOf instructions.length).length
+    instructions.zipWithIndex foreach { case (insn, idx) =>
+      ps append " "*(indent + 2 + (idxstrlen - (String valueOf idx).length))
+      ps append (idx +": ")
+      ps append insnString(insn)
+      ps append "\n"
+    }
+  }
+}
+
+object MethodInfo {
+  def apply(modifiers: Symbol*)
+	   (name: String, desc: String, insns: asm.RichInsnList)
+	   (implicit parent: ClassInfo): MethodInfo = {
+    val acc = (modifiers map Cxt.methodModifierAccess) reduce (_ | _)
+    val node = new MethodNode(acc, name, desc, null, null)
+    node.instructions = insns.insnList
+    new MethodInfo(parent.cxt, parent, node)
+  }
+
+  type InsnSpec = List[((Int, Int), List[Insn])]
+
+  case class Changes(maxStack: Option[Int],
+		     maxLocals: Option[Int],
+		     insnSpec: InsnSpec)
+
+  //todo store Record for diff
+  case class Record() {
+  }
+
+  trait Transform extends Function1[MethodInfo, Changes]
+
+  val basicAnalyzer: Analyzer = new Analyzer(new BasicInterpreter)
+  val sourceAnalyzer: Analyzer = new Analyzer(new SourceInterpreter)
+
+  trait AnalyzeTransform extends Transform {
+    def analyzer: Analyzer
+    def apply(info: MethodInfo, frames: Array[Frame]): Changes
+
+    def apply(info: MethodInfo): Changes =
+      apply(info, analyzer.analyze(info.owner.name, info.node))
+
+    def stack(frame: Frame): List[(Int, Value)] = {
+      var depth = 0
+      val size = frame.getStackSize
+      val values = new Array[(Int, Value)](size)
+      while (depth < size) {
+	val value = frame.getStack(depth)
+	values(depth) = (depth + value.getSize, value)
+	depth += value.getSize
+      }
+      values.toList filter (_ != null)
+    }
+
+    def stackDescs(frame: Frame): List[Option[String]] = stack(frame).map {
+      case (_, value) => valueDesc(value)
+    }
+
+    def stackZeroBounds(frames: Array[Frame]): List[(Int, Int)] = {
+      val zeros = for (i <- 0 until frames.length
+		       if frames(i).getStackSize == 0) yield i
+      (zeros zip zeros.tail).toList
+    }
+
+    import BasicValue._
+    def valueDesc(value: Value): Option[String] = value match {
+      case INT_VALUE =>       Some("I"); case LONG_VALUE =>   Some("J")
+      case FLOAT_VALUE =>     Some("F"); case DOUBLE_VALUE => Some("D")
+      case REFERENCE_VALUE => None
+      case _ => throw new RuntimeException("unknown value "+ value)
+    }
+  }
+
+  trait AnalyzeBasicTransform extends AnalyzeTransform {
+    val analyzer = basicAnalyzer
+  }
+
+  trait AnalyzeSourceTransform extends AnalyzeTransform {
+    val analyzer = sourceAnalyzer
+  }
+}

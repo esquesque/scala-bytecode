@@ -1,0 +1,37 @@
+                     B0 1 2 3 4 5 6
+_if                D  0 0 0
+                  DF    >-x
+_if_else           D  0 0 0 0
+                  DF    >->-x
+_if_elif_else      D  0 0 0 2 2 0
+                  DF    >->->->-x
+_if_and2           D  0 0 1 0
+                  DF    >->-x
+_if_and2_else      D  0 0 1 0 0
+                  DF    >->->-x
+                        >---x
+_if_or2            D  0 0 0 0
+                  DF    >->-x
+                        >-x
+_if_or2_else       D  0 0 0 1 0
+                  DF    >->->-x
+                        >-x
+_if_and2_elif_else D  0 0 1 0 3 3 0
+                  DF    >->->->->-x
+                        >---x
+_if_elif_and2_else D  0 0 0 2 3 2 0
+                  DF    >->->->->-x
+                            >---x
+_if_or2_elif_else  D  0 0 0 2 3 3 0
+                  DF    >->->->->-x
+                        >-x
+_if_elif_or2_else  D  0 0 0 2 2 3 0
+                  DF    >->->->->-x
+                            >-x
+
+_while             D  0 0 0
+                  DF
+_while_and2        D  0 0 1 0
+                  DF    >---x
+_while_or2         D  0 0 0 1
+                  DF    >-x
