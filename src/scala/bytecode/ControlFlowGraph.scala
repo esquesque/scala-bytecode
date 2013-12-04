@@ -28,8 +28,11 @@ abstract class ControlFlowGraph(val info: MethodInfo) {
   def predecessors(b: (Int, Int)): List[(Int, Int)] = predecessors(b._1)
   def successors(b: (Int, Int)): List[(Int, Int)] = successors(b._2)
 
-  lazy val blocks: List[ast.Block] = bounds.zipWithIndex map {
-    case (b, x) => new ast.Block(x, b, info)
+  lazy val blocks: List[ast.Block] = {
+    val frames = MethodInfo.sourceAnalyzer.analyze(info.owner.name, info.node)
+    bounds.zipWithIndex map {
+      case (b, x) => new ast.Block(x, b, info, frames)
+    }
   }
 
   case class Node(n: Int, b: (Int, Int), succs: List[(Int, Int)])

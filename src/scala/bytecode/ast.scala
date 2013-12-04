@@ -266,10 +266,11 @@ object ast {
   }
 
   import org.objectweb.asm.tree.{AbstractInsnNode => Insn}
-  import org.objectweb.asm.tree.analysis.SourceValue
+  import org.objectweb.asm.tree.analysis.{Frame, SourceValue}
   class Block(val ordinal: Int,
 	      val bound: (Int, Int),
-	      val info: MethodInfo) extends Exec {
+	      val info: MethodInfo,
+	      val frames: Array[Frame]) extends Exec {
     lazy val dominator: Option[Block] =
       info.cfg.dominators(ordinal) match {
 	case self if self == bound => None
@@ -279,7 +280,6 @@ object ast {
     /* excludes self-domination by entry block */
     lazy val dominated: List[Block] =
       (info.cfg.dominatedBy(ordinal)).toList match {
-	case self :: Nil if self == ordinal => Nil
 	case self :: rest if self == ordinal => rest map info.cfg.blocks
 	case subs => subs map info.cfg.blocks
       }
@@ -331,9 +331,6 @@ object ast {
       val x = info.instructions.indexOf(lbl)
       info.cfg.blocks.find(_.bound._1 == x)
     } )
-
-    private val frames =
-      MethodInfo.sourceAnalyzer.analyze(info.owner.name, info.node)
 
     import java.util.{Set => set}
     import scala.collection.JavaConversions._
@@ -432,7 +429,6 @@ object ast {
 			       if frames(range(i + 1)).getStackSize == 0)
 			  yield range(i)
       (stackPreZeros map mkstmt).toList
-      //check for local stores and store type?
     }
 
     def out(ps: PrintStream, indent: Int) {
