@@ -47,49 +47,47 @@ object AnchorFloatingStmts extends MethodInfo.AnalyzeBasicTransform {
     val spec: MethodInfo.InsnSpec = (hits map {
       case (_, Nil, _) => Nil
       case (zBeg, stmts, zEnd) =>
-	(if (stmts exists {
-	  case (stmtBeg, _) => insns.haveSideEffects(zBeg, stmtBeg)
-	} ) {
-	  val preSpecs = stmts map {
+	(if (insns.haveSideEffects(zBeg, stmts.last._1)) {
+	  val preSubSpecs = stmts map {
 	    case (stmtBeg, stmtIdx) => stack(frames(stmtBeg)) map {
 	      case (depth, value) =>
-		val storeIdx = (zBeg to stmtBeg).find(idx =>
+		val storeIdx = (zBeg to stmtBeg).reverse.find(idx =>
 		  frames(idx).getStackSize == depth).get
 		val loadIdx = stmtIdx + 1
 		val desc = valueDesc(value)
 		(storeIdx, loadIdx, valueDesc(value))
 	    }
 	  }
-	  preSpecs.reduceLeft((left, right) =>
+	  val subSpec = preSubSpecs.reduceLeft((left, right) =>
 	    ((left.init zip right) map {
-	      case ((lStoreIdx, lLoadIdx, lDesc),
-		    (rStoreIdx, rLoadIdx, rDesc)) =>
-		(lStoreIdx, rLoadIdx, rDesc)
+	      case ((lsIdx, llIdx, lDesc),
+		    (rsIdx, rlIdx, rDesc)) => (lsIdx, rlIdx, rDesc)
 	    } ) :+ left.last) map {
 	      case (storeIdx, loadIdx, desc) =>
 		var loc = nextLocal(desc)
 		(storeIdx, storeIdx) -> List(store(loc, desc)) ::
-		(loadIdx, loadIdx) -> List(load(loc, desc)) :: Nil
+		(loadIdx, loadIdx)   -> List(load(loc, desc))  :: Nil
 	    }
+	  subSpec
 	} else {
-	  stmts map {
+	  val subSpec = stmts map {
 	    case (stmtBeg, stmtIdx) =>
 	      val stmtFrame = frames(stmtIdx)
 	      val stmtEnds = ((stmtBeg to stmtIdx) filter (idx =>
 		frames(idx).getStackSize == stmtFrame.getStackSize)).toList
 	      val stmtEnd = stmtEnds match {
-		case idx :: Nil => idx
-		case idx0 :: idx1 :: Nil =>
-		  if ((idx0 until idx1) map (idx =>
-		    insnPushes(insns(idx))) reduce (_ & _)) idx1 else idx0
+		case end :: Nil => end
+		case end0 :: end1 :: Nil => if ((end0 until end1) map (end =>
+		  insnPushes(insns(end))) reduce (_ & _)) end1 else end0
 		case _ => throw new RuntimeException
 	      }
 	      val stmt = (insns.slice(stmtBeg, stmtEnd).toList map insnClone) :+
 			  insnClone(insns(stmtIdx))
-	      (zBeg, zBeg) -> stmt ::
-	      (stmtBeg, stmtEnd) -> Nil ::
-	      (stmtIdx, stmtIdx + 1) -> Nil :: Nil
+	      (zBeg, zBeg)           -> stmt ::
+	      (stmtBeg, stmtEnd)     -> Nil  ::
+	      (stmtIdx, stmtIdx + 1) -> Nil  :: Nil
 	  }
+	  subSpec
 	} ).flatten
     } ).flatten
     MethodInfo.Changes(None, Some(curLocal), spec)

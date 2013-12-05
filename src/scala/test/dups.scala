@@ -208,6 +208,28 @@ object dups {
     case _ => false
   }
 
+  val sfx_2iadd_dup2_4isto = insnList(
+    invokestatic("foo", "foo", "()I"),
+    invokestatic("foo", "bar", "()I"), iadd(),
+    invokestatic("foo", "baz", "()I"),
+    invokestatic("foo", "qux", "()I"), iadd(),
+    dup2(),
+    istore(0), istore(1), istore(2), istore(3))
+  val test_sfx_2iadd_dup2_4isto: Test = {
+    case invokestatic(_, "foo", _) :: invokestatic(_, "bar", _) :: iadd() ::
+	 istore(z0)                ::
+	 invokestatic(_, "baz", _) :: invokestatic(_, "qux", _) :: iadd() ::
+	 istore(y0)                ::
+	 iload(z1)                 ::
+	 istore(x0)                ::
+	 iload(y1)                 :: istore(0)                 ::
+	 iload(x1)                 :: istore(1)                 ::
+	 iload(y2)                 :: istore(2)                 ::
+	 iload(x2)                 :: istore(3)                 :: _ =>
+	   x0 == x1 && x1 == x2 && y0 == y1 && y1 == y2 && z0 == z1
+    case _ => false
+  }
+
   val sfx_dup2_x1_iadd_ladd_lsto = insnList(
     invokestatic("foo", "bar", "()I"),
     invokestatic("foo", "baz", "()J"),
@@ -232,15 +254,15 @@ object dups {
     iadd(), iadd(), iadd(), iadd(),
     istore(0))
   val test_sfx_dup2_x1_4iadd_isto: Test = {
-    case invokestatic(_, "bar", _) :: istore(v0) ::
-	 invokestatic(_, "baz", _) :: istore(w0) ::
-	 invokestatic(_, "qux", _) :: istore(x0) ::
-	 iload(w1)                 :: istore(y0) ::
-	 iload(v1)                 :: iload(y1)  :: iload(x1) ::
+    case invokestatic(_, "bar", _) :: istore(w0) ::
+	 invokestatic(_, "baz", _) :: istore(x0) ::
+	 invokestatic(_, "qux", _) :: istore(y0) ::
+	 iload(x1)                 :: istore(z0) ::
+	 iload(w1)                 :: iload(z1)  :: iload(y1) ::
 	 iadd()                    :: iadd()     ::
-	 iload(y2)                 :: iload(x2)  ::
+	 iload(z2)                 :: iload(y2)  ::
 	 iadd()                    :: iadd()     :: istore(_) :: _ =>
-	   v0 == v1 && w0 == w1 && x0 == x1 && x1 == x2 && y0 == y1 && y1 == y2
+	   w0 == w1 && x0 == x1 && y0 == y1 && y1 == y2 && z0 == z1 && z1 == z2
     case _ => false
   }
 
@@ -277,6 +299,8 @@ object dups {
      dup2_x1_iadd_ladd_lsto,     test_dup2_x1_iadd_ladd_lsto)     ::
     ("dup2_x1_4i+_i=",           5, 1,
      dup2_x1_4iadd_isto,         test_dup2_x1_4iadd_isto)         ::
+    ("sfx_2i+_dup2_4i=",         4, 4,
+     sfx_2iadd_dup2_4isto,       test_sfx_2iadd_dup2_4isto)       ::
     ("sfx_dup2_x1_i+_l+_l=",     6, 2,
      sfx_dup2_x1_iadd_ladd_lsto, test_sfx_dup2_x1_iadd_ladd_lsto) ::
     ("sfx_dup2_x1_4i+_i=",       5, 1,
@@ -293,36 +317,31 @@ object dups {
       (method, test)
   }
 
-  import java.io.{ByteArrayOutputStream => BAOS, PrintStream => PS}
   def main(args: Array[String]) {
-    val baos0 = new BAOS
-    val baos1 = new BAOS
-    val ps0 = new PS(baos0, true)
-    val ps1 = new PS(baos1, true)
+    val transforms = List(CollapseStackManipulations, AnchorFloatingStmts)
+    val len = transforms.length
+    val out = Array.fill(len)(new java.io.ByteArrayOutputStream)
+    val pnt = Array.tabulate(len)(x => new java.io.PrintStream(out(x), true))
+    def str(x: Int) = out(x).toString
     val results = for ((method, test) <- cases) yield {
       println(">>>>>"+ method)
       val result = try {
-	method.instructions.out(ps0)
-	method.apply(CollapseStackManipulations)
-	method.instructions.out(ps1)
-	method.apply(AnchorFloatingStmts)
-	//method.apply(AnchorFloatingStmts)
+	for (x <- 0 until len) {
+	  method.instructions.out(pnt(x))
+	  method.apply(transforms(x))
+	}
 	method.tree.out()
 	test(method.instructions.toList)
-      } catch {
-	case x: Throwable => x.printStackTrace; false
-      }
-      if (result) println(">PASS")
-      else {
+      } catch { case x: Throwable => x.printStackTrace; false }
+      if (result) println(">PASS") else {
 	println(">FAIL")
-	println(baos0.toString)
-	println(".....")
-	println(baos1.toString)
-	println(".....")
+	for (x <- 0 until len) {
+	  println(str(x))
+	  println("....."+ transforms(x).getClass.getSimpleName +".....")
+	}
 	method.instructions.out()
       }
-      baos0.reset
-      baos1.reset
+      out foreach (_.reset)
       result
     }
     System.exit(if (results reduce (_ & _)) {
