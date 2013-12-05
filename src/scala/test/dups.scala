@@ -208,39 +208,79 @@ object dups {
     case _ => false
   }
 
+  val sfx_dup2_x1_iadd_ladd_lsto = insnList(
+    invokestatic("foo", "bar", "()I"),
+    invokestatic("foo", "baz", "()J"),
+    dup2_x1(),
+    l2i(), iadd(), i2l(), ladd(),
+    lstore(0))
+  val test_sfx_dup2_x1_iadd_ladd_lsto: Test = {
+    case invokestatic(_, "bar", _) :: istore(x0) ::
+	 invokestatic(_, "baz", _) :: lstore(y0) ::
+         iload(x1)                 :: lload(y1)  ::
+	 l2i()                     :: iadd()     :: i2l()      ::
+	 lload(y2)                 :: ladd()     :: lstore(_)  :: _ =>
+	   x0 == x1 && y0 == y1 && y1 == y2
+    case _ => false
+  }
+
+  val sfx_dup2_x1_4iadd_isto = insnList(
+    invokestatic("foo", "bar", "()I"),
+    invokestatic("foo", "baz", "()I"),
+    invokestatic("foo", "qux", "()I"),
+    dup2_x1(),
+    iadd(), iadd(), iadd(), iadd(),
+    istore(0))
+  val test_sfx_dup2_x1_4iadd_isto: Test = {
+    case invokestatic(_, "bar", _) :: istore(v0) ::
+	 invokestatic(_, "baz", _) :: istore(w0) ::
+	 invokestatic(_, "qux", _) :: istore(x0) ::
+	 iload(w1)                 :: istore(y0) ::
+	 iload(v1)                 :: iload(y1)  :: iload(x1) ::
+	 iadd()                    :: iadd()     ::
+	 iload(y2)                 :: iload(x2)  ::
+	 iadd()                    :: iadd()     :: istore(_) :: _ =>
+	   v0 == v1 && w0 == w1 && x0 == x1 && x1 == x2 && y0 == y1 && y1 == y2
+    case _ => false
+  }
+
   val cases: List[(MethodInfo, Test)] =(
-    ("dup_init_a=",          2, 1,
-     dup_init_asto,          test_dup_init_asto)          ::
-    ("arg_dup_init_a=",      3, 2,
-     arg_dup_init_asto_init, test_arg_dup_init_asto_init) ::
-    ("dup_2i=",              2, 2,
-     dup_2isto,              test_dup_2isto)              ::
-    ("i+_dup_2i=",           2, 2,
-     iadd_dup_2isto,         test_iadd_dup_2isto)         ::
-    ("dup_i+_i=",            2, 1,
-     dup_iadd_isto,          test_dup_iadd_isto)          ::
-    ("dup_x1_2i+_i=",        3, 1,
-     dup_x1_2iadd_isto,      test_dup_x1_2iadd_isto)      ::
-    ("dup_x2_3i+_i=",        4, 1,
-     dup_x2_3iadd_isto,      test_dup_x2_3iadd_isto)      ::
-    ("sfx_dup_x1_2i+_i=",    3, 1,
-     sfx_dup_x1_2iadd_isto,  test_sfx_dup_x1_2iadd_isto)  ::
-    ("sfx_dup_x2_3i+_i=",    4, 1,
-     sfx_dup_x2_3iadd_isto,  test_sfx_dup_x2_3iadd_isto)  ::
-    ("dup2_2l=",             4, 4,
-     dup2_2lsto,             test_dup2_2lsto)             ::
-    ("l+_dup2_2l=",          4, 4,
-     ladd_dup2_2lsto,        test_ladd_dup2_2lsto)        ::
-    ("dup2_l+_l=",           4, 2,
-     dup2_ladd_lsto,         test_dup2_ladd_lsto)         ::
-    ("dup2_4i=",             4, 4,
-     dup2_4isto,             test_dup2_4isto)             ::
-    ("2i+_dup2_4i=",         4, 4,
-     _2iadd_dup2_4isto,      test_2iadd_dup2_4isto)       ::
-    ("dup2_x1_i+_l+_l=",     6, 2,
-     dup2_x1_iadd_ladd_lsto, test_dup2_x1_iadd_ladd_lsto) ::
-    ("dup2_x1_4i+_i=",       5, 1,
-     dup2_x1_4iadd_isto,     test_dup2_x1_4iadd_isto)     ::
+    ("dup_init_a=",              2, 1,
+     dup_init_asto,              test_dup_init_asto)              ::
+    ("arg_dup_init_a=",          3, 2,
+     arg_dup_init_asto_init,     test_arg_dup_init_asto_init)     ::
+    ("dup_2i=",                  2, 2,
+     dup_2isto,                  test_dup_2isto)                  ::
+    ("i+_dup_2i=",               2, 2,
+     iadd_dup_2isto,             test_iadd_dup_2isto)             ::
+    ("dup_i+_i=",                2, 1,
+     dup_iadd_isto,              test_dup_iadd_isto)              ::
+    ("dup_x1_2i+_i=",            3, 1,
+     dup_x1_2iadd_isto,          test_dup_x1_2iadd_isto)          ::
+    ("dup_x2_3i+_i=",            4, 1,
+     dup_x2_3iadd_isto,          test_dup_x2_3iadd_isto)          ::
+    ("sfx_dup_x1_2i+_i=",        3, 1,
+     sfx_dup_x1_2iadd_isto,      test_sfx_dup_x1_2iadd_isto)      ::
+    ("sfx_dup_x2_3i+_i=",        4, 1,
+     sfx_dup_x2_3iadd_isto,      test_sfx_dup_x2_3iadd_isto)      ::
+    ("dup2_2l=",                 4, 4,
+     dup2_2lsto,                 test_dup2_2lsto)                 ::
+    ("l+_dup2_2l=",              4, 4,
+     ladd_dup2_2lsto,            test_ladd_dup2_2lsto)            ::
+    ("dup2_l+_l=",               4, 2,
+     dup2_ladd_lsto,             test_dup2_ladd_lsto)             ::
+    ("dup2_4i=",                 4, 4,
+     dup2_4isto,                 test_dup2_4isto)                 ::
+    ("2i+_dup2_4i=",             4, 4,
+     _2iadd_dup2_4isto,          test_2iadd_dup2_4isto)           ::
+    ("dup2_x1_i+_l+_l=",         6, 2,
+     dup2_x1_iadd_ladd_lsto,     test_dup2_x1_iadd_ladd_lsto)     ::
+    ("dup2_x1_4i+_i=",           5, 1,
+     dup2_x1_4iadd_isto,         test_dup2_x1_4iadd_isto)         ::
+    ("sfx_dup2_x1_i+_l+_l=",     6, 2,
+     sfx_dup2_x1_iadd_ladd_lsto, test_sfx_dup2_x1_iadd_ladd_lsto) ::
+    ("sfx_dup2_x1_4i+_i=",       5, 1,
+     sfx_dup2_x1_4iadd_isto,     test_sfx_dup2_x1_4iadd_isto)     ::
     Nil) map {
 
     case (name, maxStack, maxLocals, insns, test) =>
@@ -261,12 +301,17 @@ object dups {
     val ps1 = new PS(baos1, true)
     val results = for ((method, test) <- cases) yield {
       println(">>>>>"+ method)
-      method.instructions.out(ps0)
-      method.apply(CollapseStackManipulations)
-      method.instructions.out(ps1)
-      method.apply(AnchorFloatingStmts)
-      method.tree.out()
-      val result = test(method.instructions.toList)
+      val result = try {
+	method.instructions.out(ps0)
+	method.apply(CollapseStackManipulations)
+	method.instructions.out(ps1)
+	method.apply(AnchorFloatingStmts)
+	//method.apply(AnchorFloatingStmts)
+	method.tree.out()
+	test(method.instructions.toList)
+      } catch {
+	case x: Throwable => x.printStackTrace; false
+      }
       if (result) println(">PASS")
       else {
 	println(">FAIL")

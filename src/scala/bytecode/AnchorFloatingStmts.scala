@@ -32,58 +32,65 @@ object AnchorFloatingStmts extends MethodInfo.AnalyzeBasicTransform {
     }
     val zBounds = stackZeroBounds(frames)
     val insns = info.instructions
-    val floatingStmtsIdcs =
-      for ((beg, end) <- zBounds)
-	yield for ((insn, idx) <- insns.slice(beg, end - 1).zipWithIndex
-		   if ! insnPushes(insn)) yield beg + idx
-    val spec: MethodInfo.InsnSpec = ((zBounds zip floatingStmtsIdcs) map {
-      case (zBound, stmtIdcs) => (stmtIdcs map { stmtIdx =>
-	val stmtNextFrame = frames(stmtIdx + 1)
-        val zBeg = zBound._1
-	val opndBeg = ((zBeg until stmtIdx).reverse find (idx =>
-	  frames(idx).getStackSize == stmtNextFrame.getStackSize)).get
-	/* If intervening instructions have side effects, split them into zeroed
-	 * stores and a sequence of equivalent loads before the statement in
-	 * order to emulate the stack without causing side effects out of order.
-	 */
-        if (insns.haveSideEffects(zBeg, opndBeg)) {
-	  val preSpec: List[(Int, Int, Option[String])] = {
-	    stack(frames(opndBeg)) map {
+    val hits = for ((zBeg, zEnd) <- zBounds) yield {
+      val stmts = for ((insn, idx) <- insns.slice(zBeg, zEnd - 1).zipWithIndex
+		       if ! insnPushes(insn))
+		  yield {
+		    val stmtIdx = zBeg + idx
+		    val nextFrame = frames(stmtIdx + 1)
+		    val stmtBeg = ((zBeg until stmtIdx).reverse find (idx =>
+		      frames(idx).getStackSize == nextFrame.getStackSize)).get
+		    (stmtBeg, stmtIdx)
+		  }
+      (zBeg, stmts.toList, zEnd)
+    }
+    val spec: MethodInfo.InsnSpec = (hits map {
+      case (_, Nil, _) => Nil
+      case (zBeg, stmts, zEnd) =>
+	(if (stmts exists {
+	  case (stmtBeg, _) => insns.haveSideEffects(zBeg, stmtBeg)
+	} ) {
+	  val preSpecs = stmts map {
+	    case (stmtBeg, stmtIdx) => stack(frames(stmtBeg)) map {
 	      case (depth, value) =>
-	        val insertIdx = (zBeg to opndBeg).find(idx =>
+		val storeIdx = (zBeg to stmtBeg).find(idx =>
 		  frames(idx).getStackSize == depth).get
-	      val desc = valueDesc(value)
-	      (insertIdx, nextLocal(desc), desc)
+		val loadIdx = stmtIdx + 1
+		val desc = valueDesc(value)
+		(storeIdx, loadIdx, valueDesc(value))
 	    }
 	  }
-	  (preSpec map { case (insertIdx, loc, desc) =>
-	    (insertIdx, insertIdx) -> List(store(loc, desc))
-	  } ) ++
-	  (preSpec map { case (_, loc, desc) =>
-	    (stmtIdx + 1, stmtIdx + 1) -> List(load(loc, desc))
-	  } )
-	}
-	//Otherwise, just move the statement to the stack zero.
-	else {
-	  val stmtFrame = frames(stmtIdx)
-	  val opndEnds = ((opndBeg to stmtIdx) filter (idx =>
-	    frames(idx).getStackSize == stmtFrame.getStackSize)).toList
-	  val opndEnd = opndEnds match {
-	    case idx :: Nil => idx
-	    case idx0 :: idx1 :: Nil =>
-	      if ((idx0 until idx1) map (idx =>
-		insnPushes(insns(idx))) reduce (_ & _)) idx1 else idx0
-	    case _ => throw new RuntimeException
-	    //I don't think this is possible but it could be
-	    //TODO rework
+	  preSpecs.reduceLeft((left, right) =>
+	    ((left.init zip right) map {
+	      case ((lStoreIdx, lLoadIdx, lDesc),
+		    (rStoreIdx, rLoadIdx, rDesc)) =>
+		(lStoreIdx, rLoadIdx, rDesc)
+	    } ) :+ left.last) map {
+	      case (storeIdx, loadIdx, desc) =>
+		var loc = nextLocal(desc)
+		(storeIdx, storeIdx) -> List(store(loc, desc)) ::
+		(loadIdx, loadIdx) -> List(load(loc, desc)) :: Nil
+	    }
+	} else {
+	  stmts map {
+	    case (stmtBeg, stmtIdx) =>
+	      val stmtFrame = frames(stmtIdx)
+	      val stmtEnds = ((stmtBeg to stmtIdx) filter (idx =>
+		frames(idx).getStackSize == stmtFrame.getStackSize)).toList
+	      val stmtEnd = stmtEnds match {
+		case idx :: Nil => idx
+		case idx0 :: idx1 :: Nil =>
+		  if ((idx0 until idx1) map (idx =>
+		    insnPushes(insns(idx))) reduce (_ & _)) idx1 else idx0
+		case _ => throw new RuntimeException
+	      }
+	      val stmt = (insns.slice(stmtBeg, stmtEnd).toList map insnClone) :+
+			  insnClone(insns(stmtIdx))
+	      (zBeg, zBeg) -> stmt ::
+	      (stmtBeg, stmtEnd) -> Nil ::
+	      (stmtIdx, stmtIdx + 1) -> Nil :: Nil
 	  }
-	  val stmt = (insns.slice(opndBeg, opndEnd).toList map insnClone) ++
-		       (insnClone(insns(stmtIdx)) :: Nil)
-	  (zBeg, zBeg) -> stmt ::
-	  (opndBeg, opndEnd) -> Nil ::
-	  (stmtIdx, stmtIdx + 1) -> Nil :: Nil
-	}
-      } ).flatten
+	} ).flatten
     } ).flatten
     MethodInfo.Changes(None, Some(curLocal), spec)
   }
