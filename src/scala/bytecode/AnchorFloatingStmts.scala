@@ -22,7 +22,6 @@ import org.objectweb.asm.tree.analysis.Frame
 
 object AnchorFloatingStmts extends MethodInfo.AnalyzeBasicTransform {
   def apply(info: MethodInfo, frames: Array[Frame]): MethodInfo.Changes = {
-    //info.instructions.out()
     var curLocal = info.node.maxLocals
     def nextLocal(desc: Option[String]): Int = desc match {
       case Some(wide) if (wide equals "J") || (wide equals "D") =>

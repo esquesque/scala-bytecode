@@ -59,7 +59,6 @@ package object asm {
     case putstatic(_, _, _) => true
     case putfield(_, _, _) => true
     case MethodInsnNode(_, _, _, _) => true
-    case JumpInsnNode(_) => true
     case _ => false
   }
 
@@ -142,10 +141,10 @@ package object asm {
   }
 
   class NewarrayX(t: Int) extends X {
-    def apply: intInsnNode = IntInsnNode(NEWARRAY, t)
+    def apply(): intInsnNode = IntInsnNode(NEWARRAY, t)
 
     def unapply(insn: Insn): Boolean = insn match {
-      case IntInsnNode(NEWARRAY, t) => true; case _ => false
+      case IntInsnNode(NEWARRAY, x) => x == t; case _ => false
     }
   }
 
@@ -353,7 +352,26 @@ package object asm {
   // array series 0x2e-0x35, 0x4f-0x56, 0xbc-0xbe, 0xc5
 
   object array {
-    //object load extends X
+    object load extends X {
+      def apply(desc: Option[String]): Insn = desc match {
+	case Some("I") => array.iload(); case Some("J") => array.lload()
+	case Some("F") => array.fload(); case Some("D") => array.dload()
+        case Some("B") => array.bload(); case Some("C") => array.cload()
+	case Some("S") => array.sload(); case _         => array.aload()
+      }
+
+      def unapply(insn: Insn): Option[Option[String]] = insn match {
+	case array.iload() => Some(Some("I"))
+	case array.lload() => Some(Some("J"))
+	case array.fload() => Some(Some("F"))
+	case array.dload() => Some(Some("D"))
+	case array.aload() => Some(None)
+	case array.bload() => Some(Some("B"))
+	case array.cload() => Some(Some("C"))
+	case array.sload() => Some(Some("S"))
+	case _ => None
+      }
+    }
 
     object iload extends InsnX(IALOAD)
     object lload extends InsnX(LALOAD)
@@ -364,7 +382,26 @@ package object asm {
     object cload extends InsnX(CALOAD)
     object sload extends InsnX(SALOAD)
 
-    //object store extends X
+    object store extends X {
+      def apply(desc: Option[String]): Insn = desc match {
+	case Some("I")  => array.istore(); case Some("J") => array.lstore()
+	case Some("F")  => array.fstore(); case Some("D") => array.dstore()
+        case Some("B") => array.bstore();  case Some("C") => array.cstore()
+	case Some("S") => array.sstore();  case _         => array.astore()
+      }
+
+      def unapply(insn: Insn): Option[Option[String]] = insn match {
+	case array.istore() => Some(Some("I"))
+	case array.lstore() => Some(Some("J"))
+	case array.fstore() => Some(Some("F"))
+	case array.dstore() => Some(Some("D"))
+	case array.astore() => Some(None)
+	case array.bstore() => Some(Some("B"))
+	case array.cstore() => Some(Some("C"))
+	case array.sstore() => Some(Some("S"))
+	case _              => None
+      }
+    }
 
     object istore extends InsnX(IASTORE)
     object lstore extends InsnX(LASTORE)
@@ -375,7 +412,26 @@ package object asm {
     object cstore extends InsnX(CASTORE)
     object sstore extends InsnX(SASTORE)
 
-    //object alloc extends X
+    object alloc extends X {
+      def apply(desc: String): Insn = desc match {
+	case "[I" => array.inew(); case "[J" => array.lnew()
+	case "[F" => array.fnew(); case "[D" => array.dnew()
+        case "[B" => array.bnew(); case "[C" => array.cnew()
+	case "[S" => array.snew(); case "[Z" => array.znew()
+	case desc =>
+	  array.anew(desc)
+      }
+
+      def unapply(insn: Insn): Option[String] = insn match {
+	case array.inew()     => Some("[I"); case array.lnew() => Some("[J")
+	case array.fnew()     => Some("[F"); case array.dnew() => Some("[D")
+	case array.anew(desc) => Some(desc); case array.bnew() => Some("[B")
+	case array.cnew()     => Some("[C"); case array.snew() => Some("[S")
+	case array.znew() => Some("[Z")
+	case _ =>
+	  None
+      }
+    }
 
     object inew extends NewarrayX(T_INT)
     object lnew extends NewarrayX(T_LONG)
@@ -386,8 +442,10 @@ package object asm {
     object cnew extends NewarrayX(T_CHAR)
     object snew extends NewarrayX(T_SHORT)
     object znew extends NewarrayX(T_BOOLEAN)
+
     object length extends InsnX(ARRAYLENGTH)
-    object multianew
+
+    object multianew//...............
   }
 
   // var store series 0x36-0x4e

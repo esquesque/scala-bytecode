@@ -24,23 +24,14 @@ class FieldInfo(val cxt: Cxt, val owner: ClassInfo, val node: FieldNode)
 extends MemberInfo[FieldNode, ast.FieldDecl] {
   lazy val tree: ast.FieldDecl = null
 
-  val modifiers = List[(Int, Symbol)](
-    ACC_PUBLIC    -> 'public,
-    ACC_PRIVATE   -> 'private,
-    ACC_PROTECTED -> 'protected,
-    ACC_STATIC    -> 'static,
-    ACC_FINAL     -> 'final,
-    ACC_VOLATILE  -> 'volatile,
-    ACC_TRANSIENT -> 'transient,
-    ACC_SYNTHETIC -> 'synthetic,
-    ACC_ENUM      -> 'enum) map {
-      case (mod, sym) if (mod & node.access) != 0 => Some(sym)
-      case _ => None
-    } filterNot (_.isEmpty) map (_.get)
+  def modifiers: List[Symbol] = Cxt.fieldModifierAccess.toList map {
+    case (sym, acc) if (acc & node.access) != 0 => Some(sym)
+    case _ => None
+  } filterNot (_.isEmpty) map (_.get)
 
-  val name = node.name
-  val desc = node.desc
-  val verbose = owner.name +"/"+ name +" "+ desc
+  def name = node.name
+  def desc = node.desc
+  def verbose = owner.name +"/"+ name +" "+ desc
 
   val init: Option[Any] = if (node.value == null) None else Some(node.value)
 

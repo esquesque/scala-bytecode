@@ -89,6 +89,16 @@ object Cxt {
     'super      -> ACC_SUPER,      'interface -> ACC_INTERFACE,
     'abstract   -> ACC_ABSTRACT,   'synthetic -> ACC_SYNTHETIC,
     'annotation -> ACC_ANNOTATION, 'enum      -> ACC_ENUM)
+  val fieldModifierAccess: Map[Symbol, Int] = IMap(
+    'public    -> ACC_PUBLIC,
+    'private   -> ACC_PRIVATE,
+    'protected -> ACC_PROTECTED,
+    'static    -> ACC_STATIC,
+    'final     -> ACC_FINAL,
+    'volatile  -> ACC_VOLATILE,
+    'transient -> ACC_TRANSIENT,
+    'synthetic -> ACC_SYNTHETIC,
+    'enum -> ACC_ENUM)
   val methodModifierAccess: Map[Symbol, Int] = IMap(
     'public    -> ACC_PUBLIC,    'private      -> ACC_PRIVATE,
     'protected -> ACC_PROTECTED, 'static       -> ACC_STATIC,
