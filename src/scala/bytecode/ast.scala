@@ -103,6 +103,16 @@ object ast {
       }
   }
 
+  case class Cmp(left: Expr, right: Expr) extends Expr {
+    val desc = "I"
+
+    def show(cap: Boolean) =
+      (left.show(true) + " cmp "+ right.show(true)) match {
+	case str if cap => "("+ str +")"
+	case str => str
+      }
+  }
+
   case class ShCirAnd(left: Cond, right: Cond) extends Cond("&&", null) with ShCir
   case class ShCirCOr(left: Cond, right: Cond) extends Cond("||", null) with ShCir
 
@@ -166,12 +176,12 @@ object ast {
     }
   }
 
-  case class Store(local: Local, value: Expr) extends Stmt {
+  case class Store(local: Local, expr: Expr) extends Stmt {
     def out(ps: PrintStream, indent: Int) {
       ps append " "* indent
       ps append (local show false)
       ps append " = "
-      ps append (value show false)
+      ps append (expr show false)
       ps append ';'
       ps.flush
     }
@@ -332,6 +342,11 @@ object ast {
       info.cfg.blocks.find(_.bound._1 == x)
     } )
 
+    private def mkcond1(cond: (Expr, Expr) => Cond, expr: Expr): Cond = expr match {
+      case Cmp(left, right) => cond(left, right)
+      case _ => cond(expr, zero)
+    }
+
     import java.util.{Set => set}
     import scala.collection.JavaConversions._
     def mkexpr(sourceValue: SourceValue): Expr =
@@ -348,18 +363,27 @@ object ast {
 	  insn match {
 	    case push(any) => Push(any)
 	    case load(v, _) => loadLocal(v)
+	    //case array.load(desc) =>
 	    case math(desc, operator, valency) => valency match {
 	      case 1 => Math1(desc, operator, f(0))
 	      case 2 => Math2(desc, f(0), operator, f(1))
 	    }
 	    case cast(from, to) => Cast(from, to, f(0))
+	    case cmp(_) => Cmp(f(0), f(1))
 	    case getstatic(own, name, desc) => Field(own, name, desc, None)
+	    //case getfield
 	    case initnew(inst, own, desc) => InitNew(inst, own, desc, args)
 	    case invokevirtual(own, name, desc) =>
 	      Method(own, name, desc, args.headOption, args.tail)
+	    //case invokespecial
 	    case invokestatic(own, name, desc) =>
 	      Method(own, name, desc, None, args)
+	    //case invokeinterface
+	    //case invokedynamic
 	    case anew(inst) => New(inst)
+	    //case array.alloc()
+	    //case array.length()
+	    //case instanceof
 	    case _ => throw new RuntimeException("mkexpr:"+ insnName(insn))
 	  }
 	case insn0 :: insn1 :: _ => throw new RuntimeException
@@ -373,36 +397,27 @@ object ast {
       lazy val args = ((0 until frame.getStackSize) map f).toList
       val insn = info.instructions(preZero)
       val stmt = insn match {
-	case istore(v) => storeLocal(v, f(0))
-	case lstore(v) => storeLocal(v, f(0))
-	case fstore(v) => storeLocal(v, f(0))
-	case dstore(v) => storeLocal(v, f(0))
-	case astore(v) => storeLocal(v, f(0))
-	/*case array.istore() => Array.Store
-	case array.lstore() => Array.Store
-	case array.fstore() => Array.Store
-	case array.dstore() => Array.Store
-	case array.astore() => Array.Store
-	case array.bstore() => Array.Store
-	case array.cstore() => Array.Store
-	case array.sstore() => Array.Store
+	case store(v, _) => storeLocal(v, f(0))
+	/*case array.store(_) => Array.Store
 	case pop() => Void
-	case pop2() => //Void two of them??? */
+	case pop2() => //Void x two??? */
 	case iinc(v, n) => Void(Inc(loadLocal(v), n))
 	case label() => Label(labelId(insn))
 	case goto(lbl) => mkgoto(lbl)
-	case ifeq(lbl) => If(Eq(f(0), zero), mkgoto(lbl))
-	case ifne(lbl) => If(Ne(f(0), zero), mkgoto(lbl))
-	case iflt(lbl) => If(Lt(f(0), zero), mkgoto(lbl))
-	case ifge(lbl) => If(Ge(f(0), zero), mkgoto(lbl))
-	case ifgt(lbl) => If(Gt(f(0), zero), mkgoto(lbl))
-	case ifle(lbl) => If(Le(f(0), zero), mkgoto(lbl))
+	case ifeq(lbl) => If(mkcond1(Eq, f(0)), mkgoto(lbl))
+	case ifne(lbl) => If(mkcond1(Ne, f(0)), mkgoto(lbl))
+	case iflt(lbl) => If(mkcond1(Lt, f(0)), mkgoto(lbl))
+	case ifge(lbl) => If(mkcond1(Ge, f(0)), mkgoto(lbl))
+	case ifgt(lbl) => If(mkcond1(Gt, f(0)), mkgoto(lbl))
+	case ifle(lbl) => If(mkcond1(Le, f(0)), mkgoto(lbl))
 	case if_icmpeq(lbl) => If(Eq(f(0), f(1)), mkgoto(lbl))
 	case if_icmpne(lbl) => If(Ne(f(0), f(1)), mkgoto(lbl))
 	case if_icmplt(lbl) => If(Lt(f(0), f(1)), mkgoto(lbl))
 	case if_icmpge(lbl) => If(Ge(f(0), f(1)), mkgoto(lbl))
 	case if_icmpgt(lbl) => If(Gt(f(0), f(1)), mkgoto(lbl))
 	case if_icmple(lbl) => If(Le(f(0), f(1)), mkgoto(lbl))
+	//case putstatic
+        //case putfield
 	case invokevirtual(own, name, desc) =>
 	  Void(Method(own, name, desc, args.headOption, args.tail))
 	case invokespecial(own, name, desc) =>
@@ -414,6 +429,8 @@ object ast {
 	  } )
 	case invokestatic(own, name, desc) =>
 	  Void(Method(own, name, desc, None, args))
+	//case invokeinterface
+	//case invokedynamic
 	case vreturn() => Return(None)
 	case _ => throw new RuntimeException("mkstmt:"+ insnName(insn))
       }

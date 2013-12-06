@@ -582,6 +582,7 @@ package object asm {
       case f2i() => Some(Some("F"), "I"); case f2l() => Some(Some("F"), "J")
       case f2d() => Some(Some("F"), "D"); case d2i() => Some(Some("D"), "I")
       case d2l() => Some(Some("D"), "J"); case d2f() => Some(Some("D"), "F")
+      case checkcast(desc) => Some(None, desc)
       case _ => None
     }
   }
@@ -606,7 +607,14 @@ package object asm {
 
   // compare/push series 0x94-0x98
 
-  //object compare extends X
+  object cmp extends X {
+    def unapply(insn: Insn): Option[String] = insn match {
+      case lcmp() => Some("J")
+      case fcmpl() => Some("F"); case fcmpg() => Some("F")
+      case dcmpl() => Some("D"); case dcmpg() => Some("D")
+      case _ => None
+    }
+  }
 
   object lcmp extends InsnX(LCMP)
   object fcmpl extends InsnX(FCMPL)
