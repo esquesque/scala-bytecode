@@ -80,6 +80,20 @@ extends MemberInfo[MethodNode, ast.MethodDecl] {
   def abstractStack: List[MethodInfo.Record] =
     apply(CollapseStackManipulations, AnchorFloatingStmts)
 
+  /* @return a 3-ple to avoid the need for a wrapper for TryCatchBlockNode;
+   *  first 2-ple is the try range and the second 2-ple is the catch range;
+   *  third element is an optional exception descriptor (None for finally).
+   */
+  def tryCatches: List[((Int, Int), (Int, Int), Option[String])] = {
+    val end = instructions.length
+    node.tryCatchBlocks.asInstanceOf[list[TryCatchBlockNode]].toList map {
+      tcb =>
+	val idx: Insn => Int = instructions indexOf _
+	((idx(tcb.start), idx(tcb.end)), (idx(tcb.handler), end),
+	 if (tcb.`type` == null) None else Some(tcb.`type`))
+    }
+  }
+
   private lazy val preds: Array[Array[Int]] =
     Array.fill(instructions.length)(null)
   private lazy val succs: Array[Array[Int]] =
@@ -94,23 +108,9 @@ extends MemberInfo[MethodNode, ast.MethodDecl] {
     }
   }
 
-  /* @return a 3-ple to avoid the need for a wrapper for TryCatchBlockNode;
-   *  first 2-ple is the try range and the second 2-ple is the catch range;
-   *  third element is an optional exception descriptor (None for finally).
-   */
-  val tryCatches: List[((Int, Int), (Int, Int), Option[String])] = {
-    val end = instructions.length
-    node.tryCatchBlocks.asInstanceOf[list[TryCatchBlockNode]].toList map {
-      tcb =>
-	val idx: Insn => Int = instructions indexOf _
-	((idx(tcb.start), idx(tcb.end)), (idx(tcb.handler), end),
-	 if (tcb.`type` == null) None else Some(tcb.`type`))
-    }
-  }
-
   /* @return a fresh ControlFlowGraph.
    */
-  lazy val cfg: ControlFlowGraph = new ControlFlowGraph(this) {
+  def cfg: ControlFlowGraph = new ControlFlowGraph(this) {
     cfgAnalyzer.analyze(owner.name, node)
     val bounds: List[(Int, Int)] = {
       val tryBounds_m1 = tryCatches.map(_._1 match {

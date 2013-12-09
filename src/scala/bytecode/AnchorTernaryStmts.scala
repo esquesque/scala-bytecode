@@ -15,37 +15,20 @@
  *along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package scala.test
+package scala.bytecode
 
-import scala.bytecode._
-import scala.bytecode.asm._
+import asm._
+import org.objectweb.asm.tree.analysis.Frame
 
-object ifs {
-  val ternary = {
-    val lbl0 = label()
-    val lbl1 = label()
-    insnList(
-      iload(0),
-      ifeq(lbl0),
-      apush("x"),
-      goto(lbl1),
-      lbl0,
-      apush("y"),
-      lbl1,
-      astore(1))
-  }
-
-  def main(args: Array[String]) {
-    val method = ClassInfo.anonymous.newMethod('static)(
-      "ternary",
-      "(I)V",
-      ternary += vreturn())
-    method.node.maxStack = 1
-    method.node.maxLocals = 2
-    method.instructions.out()
-    println(".....")
-    method apply AnchorTernaryStmts
-    method.instructions.out()
-    method.tree.out()
+object AnchorTernaryStmts extends MethodInfo.AnalyzeBasicTransform {
+  def apply(info: MethodInfo, frames: Array[Frame]): MethodInfo.Changes = {
+    var curLocal = info.node.maxLocals
+    def nextLocal(desc: Option[String]): Int = desc match {
+      case Some(wide) if (wide equals "J") || (wide equals "D") =>
+	curLocal += 2; curLocal - 2
+      case _ =>
+	curLocal += 1; curLocal - 1
+    }
+    MethodInfo.Changes(None, Some(curLocal), Nil)
   }
 }

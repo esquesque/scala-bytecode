@@ -17,7 +17,7 @@
 
 package scala.bytecode
 
-import org.objectweb.asm.{Opcodes, tree, util}
+import org.objectweb.asm.{Label, Opcodes, tree, util}
 
 package object asm {
   import Opcodes._
@@ -219,6 +219,8 @@ package object asm {
   }
 
   object label extends X {
+    def apply(): labelNode = LabelNode(new Label)
+
     def unapply(insn: Insn): Boolean = insn.isInstanceOf[labelNode]
   }
 
@@ -427,7 +429,7 @@ package object asm {
 	case array.fnew()     => Some("[F"); case array.dnew() => Some("[D")
 	case array.anew(desc) => Some(desc); case array.bnew() => Some("[B")
 	case array.cnew()     => Some("[C"); case array.snew() => Some("[S")
-	case array.znew() => Some("[Z")
+	case array.znew()     => Some("[Z")
 	case _ =>
 	  None
       }

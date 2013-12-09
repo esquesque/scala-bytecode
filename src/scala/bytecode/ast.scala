@@ -53,7 +53,18 @@ object ast {
     }
   }
 
-  val zero = Push(0)
+  val Zero = Push(0)
+  val Null = Push(null)
+
+  case class ArrayAlloc(desc: String, length: Expr) extends Expr {
+    def show(cap: Boolean) = "new "+ desc +" len="+ (length show false)
+  }
+
+  case class ArrayLength(ref: Expr) extends Expr {
+    val desc = "I"
+
+    def show(cap: Boolean) = (ref show true) +" len"
+  }
 
   case class Math1(desc: String, operator: String, expr: Expr) extends Expr {
     def show(cap: Boolean) = (operator +" "+ (expr show true)) match {
@@ -176,12 +187,25 @@ object ast {
     }
   }
 
-  case class Store(local: Local, expr: Expr) extends Stmt {
+  case class Store(ref: Expr, expr: Expr) extends Stmt {
     def out(ps: PrintStream, indent: Int) {
       ps append " "* indent
-      ps append (local show false)
+      ps append (ref show false)
       ps append " = "
       ps append (expr show false)
+      ps append ';'
+      ps.flush
+    }
+  }
+
+  case class ArrayStore(ref: Expr, idx: Expr, value: Expr) extends Stmt {
+    def out(ps: PrintStream, indent: Int) {
+      ps append " "* indent
+      ps append (ref show true)
+      ps append '['
+      ps append (idx show false)
+      ps append "] = "
+      ps append (value show false)
       ps append ';'
       ps.flush
     }
@@ -344,7 +368,7 @@ object ast {
 
     private def mkcond1(cond: (Expr, Expr) => Cond, expr: Expr): Cond = expr match {
       case Cmp(left, right) => cond(left, right)
-      case _ => cond(expr, zero)
+      case _ => cond(expr, Zero)
     }
 
     import java.util.{Set => set}
@@ -364,14 +388,12 @@ object ast {
 	    case push(any) => Push(any)
 	    case load(v, _) => loadLocal(v)
 	    //case array.load(desc) =>
-	    case math(desc, operator, valency) => valency match {
-	      case 1 => Math1(desc, operator, f(0))
-	      case 2 => Math2(desc, f(0), operator, f(1))
-	    }
+	    case math(desc, operator, 1) => Math1(desc, operator, f(0))
+	    case math(desc, operator, 2) => Math2(desc, f(0), operator, f(1))
 	    case cast(from, to) => Cast(from, to, f(0))
 	    case cmp(_) => Cmp(f(0), f(1))
 	    case getstatic(own, name, desc) => Field(own, name, desc, None)
-	    //case getfield
+	    case getfield(own, name, desc) => Field(own, name, desc, Some(f(0)))
 	    case initnew(inst, own, desc) => InitNew(inst, own, desc, args)
 	    case invokevirtual(own, name, desc) =>
 	      Method(own, name, desc, args.headOption, args.tail)
@@ -381,12 +403,15 @@ object ast {
 	    //case invokeinterface
 	    //case invokedynamic
 	    case anew(inst) => New(inst)
-	    //case array.alloc()
-	    //case array.length()
+	    case array.alloc(desc) => ArrayAlloc(desc, f(0))
+	    case array.length() => ArrayLength(f(0))
 	    //case instanceof
 	    case _ => throw new RuntimeException("mkexpr:"+ insnName(insn))
 	  }
-	case insn0 :: insn1 :: _ => throw new RuntimeException
+	case insn0 :: insn1 :: _ =>
+	  println(insnString(insn0))
+	  println(insnString(insn1))
+	  throw new RuntimeException("wooo ooops")
       }
 
     def mkstmt(preZero: Int): Stmt = {
@@ -398,9 +423,9 @@ object ast {
       val insn = info.instructions(preZero)
       val stmt = insn match {
 	case store(v, _) => storeLocal(v, f(0))
-	/*case array.store(_) => Array.Store
-	case pop() => Void
-	case pop2() => //Void x two??? */
+	case array.store(_) => ArrayStore(f(0), f(1), f(2))
+	//case pop() => Void
+	//case pop2() => Void
 	case iinc(v, n) => Void(Inc(loadLocal(v), n))
 	case label() => Label(labelId(insn))
 	case goto(lbl) => mkgoto(lbl)
@@ -416,8 +441,14 @@ object ast {
 	case if_icmpge(lbl) => If(Ge(f(0), f(1)), mkgoto(lbl))
 	case if_icmpgt(lbl) => If(Gt(f(0), f(1)), mkgoto(lbl))
 	case if_icmple(lbl) => If(Le(f(0), f(1)), mkgoto(lbl))
-	//case putstatic
-        //case putfield
+	case if_acmpeq(lbl) => If(Eq(f(0), f(1)), mkgoto(lbl))
+	case if_acmpne(lbl) => If(Ne(f(0), f(1)), mkgoto(lbl))
+	case ifnull(lbl) => If(Eq(f(0), Null), mkgoto(lbl))
+	case ifnonnull(lbl) => If(Ne(f(0), Null), mkgoto(lbl))
+	case putstatic(own, name, desc) =>
+	  Store(Field(own, name, desc, None), f(0))
+        case putfield(own, name, desc) =>
+	  Store(Field(own, name, desc, Some(f(0))), f(1))
 	case invokevirtual(own, name, desc) =>
 	  Void(Method(own, name, desc, args.headOption, args.tail))
 	case invokespecial(own, name, desc) =>
@@ -431,7 +462,14 @@ object ast {
 	  Void(Method(own, name, desc, None, args))
 	//case invokeinterface
 	//case invokedynamic
+	case ireturn() => Return(Some(f(0)))
+	case lreturn() => Return(Some(f(0)))
+	case freturn() => Return(Some(f(0)))
+	case dreturn() => Return(Some(f(0)))
+	case areturn() => Return(Some(f(0)))
 	case vreturn() => Return(None)
+	//case monitorenter() =>
+	//case monitorexit() =>
 	case _ => throw new RuntimeException("mkstmt:"+ insnName(insn))
       }
       stmt
