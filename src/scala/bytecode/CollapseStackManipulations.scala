@@ -21,15 +21,15 @@ import asm._
 import org.objectweb.asm.tree.analysis.Frame
 
 object CollapseStackManipulations extends MethodInfo.AnalyzeBasicTransform {
-  def apply(info: MethodInfo, frames: Array[Frame]): MethodInfo.Changes = {
-    var curLocal = info.node.maxLocals
+  def apply(method: MethodInfo, frames: Array[Frame]): MethodInfo.Changes = {
+    var curLocal = method.node.maxLocals
     def nextLocal(desc: Option[String]): Int = desc match {
       case Some(wide) if (wide equals "J") || (wide equals "D") =>
 	curLocal += 2; curLocal - 2
       case _ => curLocal += 1; curLocal - 1
     }
     val zBounds: List[(Int, Int)] = stackZeroBounds(frames)
-    val insns = info.instructions
+    val insns = method.instructions
     val smBoundsByZ: List[List[(Int, Int)]] = zBounds map (insns.search(_, 2) {
       //case pop() :: _ => 1
       //case pop2() :: _ => 1

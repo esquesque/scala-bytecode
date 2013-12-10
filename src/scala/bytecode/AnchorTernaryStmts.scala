@@ -20,15 +20,20 @@ package scala.bytecode
 import asm._
 import org.objectweb.asm.tree.analysis.Frame
 
-object AnchorTernaryStmts extends MethodInfo.AnalyzeBasicTransform {
-  def apply(info: MethodInfo, frames: Array[Frame]): MethodInfo.Changes = {
-    var curLocal = info.node.maxLocals
+object AnchorTernaryStmts extends MethodInfo.CFGTransform {
+  val interpreter = MethodInfo.basicInterpreter
+
+  def apply(method: MethodInfo,
+	    cfg: ControlFlowGraph,
+	    frames: Array[Frame]): MethodInfo.Changes = {
+    var curLocal = method.node.maxLocals
     def nextLocal(desc: Option[String]): Int = desc match {
       case Some(wide) if (wide equals "J") || (wide equals "D") =>
 	curLocal += 2; curLocal - 2
       case _ =>
 	curLocal += 1; curLocal - 1
     }
+    println(cfg.bounds filter { case (beg, _) => frames(beg).getStackSize > 0 })
     MethodInfo.Changes(None, Some(curLocal), Nil)
   }
 }

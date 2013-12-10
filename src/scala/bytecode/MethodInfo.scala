@@ -26,6 +26,7 @@ import org.objectweb.asm.tree.analysis.{Analyzer,
 					BasicInterpreter,
 					BasicValue,
 					Frame,
+					Interpreter,
 					SourceInterpreter,
 					Value}
 
@@ -94,12 +95,16 @@ extends MemberInfo[MethodNode, ast.MethodDecl] {
     }
   }
 
-  private lazy val preds: Array[Array[Int]] =
-    Array.fill(instructions.length)(null)
-  private lazy val succs: Array[Array[Int]] =
-    Array.fill(instructions.length)(null)
+  private var preds: Array[Array[Int]] = null
+  private var succs: Array[Array[Int]] = null
 
-  private val cfgAnalyzer: Analyzer = new Analyzer(new BasicInterpreter) {
+  def cfgAnalyzer(intr: Interpreter): Analyzer = new Analyzer(intr) {
+    override def analyze(ownerName: String, node: MethodNode): Array[Frame] = {
+      val len = instructions.length
+      preds = Array.fill(len)(null); succs = Array.fill(len)(null)
+      super.analyze(ownerName, node)
+    }
+
     override def newControlFlowEdge(p: Int, s: Int) {
       if (preds(s) == null) preds(s) = Array(p)
       else if (! (preds(s) contains p)) preds(s) :+= p
@@ -111,7 +116,6 @@ extends MemberInfo[MethodNode, ast.MethodDecl] {
   /* @return a fresh ControlFlowGraph.
    */
   def cfg: ControlFlowGraph = new ControlFlowGraph(this) {
-    cfgAnalyzer.analyze(owner.name, node)
     val bounds: List[(Int, Int)] = {
       val tryBounds_m1 = tryCatches.map(_._1 match {
 	case (beg, end) => (beg - 1) :: (end - 1) :: Nil
@@ -179,15 +183,19 @@ object MethodInfo {
 
   trait Transform extends Function1[MethodInfo, Changes]
 
-  val basicAnalyzer: Analyzer = new Analyzer(new BasicInterpreter)
-  val sourceAnalyzer: Analyzer = new Analyzer(new SourceInterpreter)
+  def basicInterpreter: BasicInterpreter = new BasicInterpreter
+  def sourceInterpreter: SourceInterpreter = new SourceInterpreter
 
-  trait AnalyzeTransform extends Transform {
-    def analyzer: Analyzer
-    def apply(info: MethodInfo, frames: Array[Frame]): Changes
+  val basicAnalyzer: Analyzer = new Analyzer(basicInterpreter)
+  val sourceAnalyzer: Analyzer = new Analyzer(sourceInterpreter)
 
-    def apply(info: MethodInfo): Changes =
-      apply(info, analyzer.analyze(info.owner.name, info.node))
+  trait AnalyzeTransform extends Transform
+			 with Function2[MethodInfo, Array[Frame], Changes] {
+    def analyzer(method: MethodInfo): Analyzer
+    def apply(method: MethodInfo, frames: Array[Frame]): Changes
+
+    def apply(method: MethodInfo): Changes =
+      apply(method, analyzer(method).analyze(method.owner.name, method.node))
 
     def stack(frame: Frame): List[(Int, Value)] = {
       var depth = 0
@@ -221,10 +229,22 @@ object MethodInfo {
   }
 
   trait AnalyzeBasicTransform extends AnalyzeTransform {
-    val analyzer = basicAnalyzer
+    def analyzer(method: MethodInfo) = basicAnalyzer
   }
 
   trait AnalyzeSourceTransform extends AnalyzeTransform {
-    val analyzer = sourceAnalyzer
+    def analyzer(method: MethodInfo) = sourceAnalyzer
+  }
+
+  trait CFGTransform extends AnalyzeTransform {
+    def interpreter: Interpreter
+    def apply(method: MethodInfo,
+	      cfg: ControlFlowGraph,
+	      frames: Array[Frame]): Changes
+
+    def analyzer(method: MethodInfo) = method.cfgAnalyzer(interpreter)
+
+    def apply(method: MethodInfo, frames: Array[Frame]): Changes =
+      apply(method, method.cfg, frames)
   }
 }

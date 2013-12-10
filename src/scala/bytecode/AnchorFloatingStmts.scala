@@ -21,8 +21,8 @@ import asm._
 import org.objectweb.asm.tree.analysis.Frame
 
 object AnchorFloatingStmts extends MethodInfo.AnalyzeBasicTransform {
-  def apply(info: MethodInfo, frames: Array[Frame]): MethodInfo.Changes = {
-    var curLocal = info.node.maxLocals
+  def apply(method: MethodInfo, frames: Array[Frame]): MethodInfo.Changes = {
+    var curLocal = method.node.maxLocals
     def nextLocal(desc: Option[String]): Int = desc match {
       case Some(wide) if (wide equals "J") || (wide equals "D") =>
 	curLocal += 2; curLocal - 2
@@ -30,7 +30,7 @@ object AnchorFloatingStmts extends MethodInfo.AnalyzeBasicTransform {
 	curLocal += 1; curLocal - 1
     }
     val zBounds = stackZeroBounds(frames)
-    val insns = info.instructions
+    val insns = method.instructions
     val hits = for ((zBeg, zEnd) <- zBounds) yield {
       val stmts = for ((insn, idx) <- insns.slice(zBeg, zEnd - 1).zipWithIndex
 		       if ! insnPushes(insn))

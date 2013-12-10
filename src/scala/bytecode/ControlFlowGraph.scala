@@ -17,9 +17,10 @@
 
 package scala.bytecode
 
+import org.objectweb.asm.tree.analysis.Frame
 import scala.collection.mutable.BitSet
 
-abstract class ControlFlowGraph(val info: MethodInfo) {
+abstract class ControlFlowGraph(val method: MethodInfo) {
   def bounds: List[(Int, Int)]
   def edges: List[((Int, Int), (Int, Int))]
   def predecessors(beg: Int): List[(Int, Int)]
@@ -28,11 +29,8 @@ abstract class ControlFlowGraph(val info: MethodInfo) {
   def predecessors(b: (Int, Int)): List[(Int, Int)] = predecessors(b._1)
   def successors(b: (Int, Int)): List[(Int, Int)] = successors(b._2)
 
-  lazy val blocks: List[ast.Block] = {
-    val frames = MethodInfo.sourceAnalyzer.analyze(info.owner.name, info.node)
-    bounds.zipWithIndex map {
-      case (b, x) => new ast.Block(x, b, info, frames)
-    }
+  def blocks(frames: Array[Frame]): List[ast.Block] = bounds.zipWithIndex map {
+    case (b, x) => new ast.Block(x, b, method, this, frames)
   }
 
   case class Node(n: Int, b: (Int, Int), succs: List[(Int, Int)])
@@ -57,7 +55,7 @@ abstract class ControlFlowGraph(val info: MethodInfo) {
     val pre1 = new Array[Node](bounds.length)
     val post1 = new Array[Node](bounds.length)
     def catchBounds(beg: Int): List[(Int, Int)] =
-      info.tryCatches filter(_._1._1 == beg) map (tc =>
+      method.tryCatches filter(_._1._1 == beg) map (tc =>
 	bounds.find(b => b._1 == tc._2._1).get)
     def f(nodes: List[Node], m: Int, n: Int): Int = nodes match {
       case Nil => m
@@ -135,7 +133,7 @@ abstract class ControlFlowGraph(val info: MethodInfo) {
 	val preds = predecessors(n.b)
 	var idom = preds find (p => proc(bs indexOf p)) getOrElse {
 	  if (preds.length == 0) {
-	    val tc = info.tryCatches.find(_._2._1 == n.b._1).get
+	    val tc = method.tryCatches.find(_._2._1 == n.b._1).get
 	    bs.find(_._1 == tc._1._1).get
 	  } else preds(0)
 	}

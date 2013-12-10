@@ -237,15 +237,14 @@ object ast {
     }
   }
 
-  case class Goto(labelId: Symbol, getblk: () => Option[Block]) extends Stmt {
-    lazy val target: Option[Block] = getblk()
+  case class Goto(labelId: Symbol, targetOrd: Int) extends Stmt {
 
     def out(ps: PrintStream, indent: Int) {
       ps append " "* indent
       ps append "goto "
       ps append labelId.name
       ps append ";//"
-      ps append (target map (_.bound.toString) getOrElse "nowhere!")
+      ps append targetOrd.toString
       ps.flush
     }
   }
@@ -304,8 +303,9 @@ object ast {
   class Block(val ordinal: Int,
 	      val bound: (Int, Int),
 	      val info: MethodInfo,
+	      val cfg: ControlFlowGraph,
 	      val frames: Array[Frame]) extends Exec {
-    lazy val dominator: Option[Block] =
+/*    lazy val dominator: Option[Block] =
       info.cfg.dominators(ordinal) match {
 	case self if self == bound => None
 	case dom => Some(info.cfg.blocks(info.cfg.bounds indexOf dom))
@@ -319,7 +319,7 @@ object ast {
       }
 
     lazy val dominanceFrontier: List[Block] =
-      (info.cfg.dominanceFrontiers(ordinal)).toList map info.cfg.blocks
+      (info.cfg.dominanceFrontiers(ordinal)).toList map info.cfg.blocks*/
 
     /* check ordinal and bound */
     def ordinallyPrecedes(subseq: Block*): Boolean = subseq.headOption match {
@@ -361,9 +361,9 @@ object ast {
 
     //private def getblk(insn: Insn): () => Option[Block] = 
 
-    private def mkgoto(lbl: Insn): Goto = Goto(labelId(lbl), { () =>
+    private def mkgoto(lbl: Insn): Goto = Goto(labelId(lbl), {
       val x = info.instructions.indexOf(lbl)
-      info.cfg.blocks.find(_.bound._1 == x)
+      cfg.bounds indexWhere { case (y, _) => y == x }
     } )
 
     private def mkcond1(cond: (Expr, Expr) => Cond, expr: Expr): Cond = expr match {
@@ -477,7 +477,7 @@ object ast {
 
     lazy val body = {
       val range = (bound._1 until bound._2) ++
-		  (info.cfg successors bound match {
+		  (cfg successors bound match {
 	case (x, _) :: _ => x :: Nil; case _ => 0 :: Nil
       } )
       val stackPreZeros = for (i <- 0 until range.length - 1
@@ -548,12 +548,16 @@ object ast {
       new FieldDecl(info.modifiers, info.name, info.desc, info.init)
   }
 
+  import org.objectweb.asm.tree.analysis.Analyzer
   object MethodDecl {
-    def apply(info: MethodInfo): MethodDecl =
-      new MethodDecl(info.modifiers,
-		     info.name,
-		     info.desc,
-		     info.thrown,
-		     info.cfg.blocks)
+    def apply(method: MethodInfo): MethodDecl = {
+      val analyzer = method.cfgAnalyzer(MethodInfo.sourceInterpreter)
+      val frames = analyzer.analyze(method.owner.name, method.node)
+      new MethodDecl(method.modifiers,
+		     method.name,
+		     method.desc,
+		     method.thrown,
+		     method.cfg.blocks(frames))
+    }
   }
 }
