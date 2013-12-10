@@ -20,7 +20,7 @@ package scala.bytecode
 import asm._
 import org.objectweb.asm.tree.analysis.Frame
 
-object AnchorTernaryStmts extends MethodInfo.CFGTransform {
+object CollapseTernaryExprs extends MethodInfo.CFGTransform {
   val interpreter = MethodInfo.basicInterpreter
 
   def apply(method: MethodInfo,

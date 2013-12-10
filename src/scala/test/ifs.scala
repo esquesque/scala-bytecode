@@ -66,7 +66,7 @@ object ifs {
     for (method <- methods) {
       method.instructions.out()
       println(".....")
-      method apply AnchorTernaryStmts
+      method apply CollapseTernaryExprs
       method.instructions.out()
       println(".....")
       method apply AnchorFloatingStmts
