@@ -34,18 +34,21 @@ object AnchorTernaryStmts extends MethodInfo.CFGTransform {
 	curLocal += 1; curLocal - 1
     }
     val nonZeroBlockBounds = cfg.bounds filter {
-      case (beg, _) => frames(beg).getStackSize > 0
+      case (beg, end) =>
+	val begDepth = frames(beg).getStackSize
+	begDepth > 0 && begDepth > frames(end - 1).getStackSize
     }
     val spec: MethodInfo.InsnSpec =
       (for (bound <- nonZeroBlockBounds) yield {
-	val depth = frames(bound._1).getStackSize
-	val localSpecs = stackDescs(frames(bound._1)) map (desc =>
+	val domEndDepth =
+	  frames(cfg.dominators(cfg.bounds indexOf bound)._2).getStackSize
+	val begDepth = frames(bound._1).getStackSize
+	val localSpecs = stackDescs(frames(bound._1), domEndDepth) map (desc =>
 	  (nextLocal(desc), desc))
-	println(localSpecs)
 	val loads = localSpecs map { case (v, desc) => load(v, desc) }
 	(for (pred <- cfg predecessors bound) yield {
           val insertIdx = ((pred._1 until pred._2).reverse find (idx =>
-	    frames(idx + 1).getStackSize == depth)).get + 1
+	    frames(idx + 1).getStackSize == begDepth)).get + 1
           val stores = localSpecs map { case (v, desc) => store(v, desc) }
           (insertIdx, insertIdx) -> stores
 	} ) ++ ((bound._1 + 1, bound._1 + 1) -> loads :: Nil)

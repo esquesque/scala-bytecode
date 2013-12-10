@@ -213,6 +213,11 @@ object MethodInfo {
       case (_, value) => valueDesc(value)
     }
 
+    def stackDescs(frame: Frame, fromDepth: Int): List[Option[String]] =
+      stack(frame) dropWhile (_._1 <= fromDepth) map {
+	case (_, value) => valueDesc(value)
+      }
+
     def stackZeroBounds(frames: Array[Frame]): List[(Int, Int)] = {
       val zeros = for (i <- 0 until frames.length
 		       if frames(i).getStackSize == 0) yield i

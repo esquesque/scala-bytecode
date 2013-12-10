@@ -266,7 +266,7 @@ object dups {
     case _ => false
   }
 
-  val cases: List[(MethodInfo, Test)] =(
+  val cases: List[(MethodInfo, Test)] = (
     ("dup_init_a=",              2, 1,
      dup_init_asto,              test_dup_init_asto)              ::
     ("arg_dup_init_a=",          3, 2,

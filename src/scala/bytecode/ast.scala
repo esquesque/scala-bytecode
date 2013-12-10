@@ -346,7 +346,7 @@ object ast {
 
     //TODO
     def mergePredLocal(v: Int): Option[Local] = {
-      (predecessors map (_.locals(v))).headOption
+      (predecessors map (_.loadLocal(v))).headOption
     }
 
     def loadLocal(v: Int): Local = locals(v) match {

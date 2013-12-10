@@ -34,18 +34,44 @@ object ifs {
       lbl1,
       astore(1))
   }
+  val nonzero_ternary = {
+    val lbl0 = label()
+    val lbl1 = label()
+    insnList(
+      ipush(1),
+      iload(0),
+      ifeq(lbl0),
+      apush("x"),
+      goto(lbl1),
+      lbl0,
+      apush("y"),
+      lbl1,
+      invokestatic("foo", "bar", "(ILjava/lang/String;)V"))
+  }
+
+  val methods: List[MethodInfo] = (
+    ("ternary",         "(I)V", 1, 2, ternary)         ::
+    ("nonzero_ternary", "(I)V", 2, 2, nonzero_ternary) :: Nil) map {
+      case (name, desc, maxStack, maxLocals, insns) =>
+	val method = ClassInfo.anonymous.newMethod('static)(
+	  name,
+	  desc,
+	  insns += vreturn())
+      method.node.maxStack = maxStack
+      method.node.maxLocals = maxLocals
+      method
+    }
 
   def main(args: Array[String]) {
-    val method = ClassInfo.anonymous.newMethod('static)(
-      "ternary",
-      "(I)V",
-      ternary += vreturn())
-    method.node.maxStack = 1
-    method.node.maxLocals = 2
-    method.instructions.out()
-    println(".....")
-    method apply AnchorTernaryStmts
-    method.instructions.out()
-    method.tree.out()
+    for (method <- methods) {
+      method.instructions.out()
+      println(".....")
+      method apply AnchorTernaryStmts
+      method.instructions.out()
+      println(".....")
+      method apply AnchorFloatingStmts
+      method.instructions.out()
+      method.tree.out()
+    }
   }
 }

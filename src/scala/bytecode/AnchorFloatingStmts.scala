@@ -20,8 +20,12 @@ package scala.bytecode
 import asm._
 import org.objectweb.asm.tree.analysis.Frame
 
-object AnchorFloatingStmts extends MethodInfo.AnalyzeBasicTransform {
-  def apply(method: MethodInfo, frames: Array[Frame]): MethodInfo.Changes = {
+object AnchorFloatingStmts extends MethodInfo.CFGTransform {
+  val interpreter = MethodInfo.basicInterpreter
+
+  def apply(method: MethodInfo,
+	    frames: Array[Frame],
+	    cfg: ControlFlowGraph): MethodInfo.Changes = {
     var curLocal = method.node.maxLocals
     def nextLocal(desc: Option[String]): Int = desc match {
       case Some(wide) if (wide equals "J") || (wide equals "D") =>
@@ -35,10 +39,17 @@ object AnchorFloatingStmts extends MethodInfo.AnalyzeBasicTransform {
       val stmts = for ((insn, idx) <- insns.slice(zBeg, zEnd - 1).zipWithIndex
 		       if ! insnPushes(insn))
 		  yield {
-		    val stmtIdx = zBeg + idx
+		    var stmtIdx = zBeg + idx
 		    val nextFrame = frames(stmtIdx + 1)
 		    val stmtBeg = ((zBeg until stmtIdx).reverse find (idx =>
 		      frames(idx).getStackSize == nextFrame.getStackSize)).get
+		    insns(stmtIdx) match {
+		      case JumpInsnNode(_, lbl) =>
+		        val subs = cfg.dominatedBy(cfg.bounds.indexWhere(
+			  _._2 == stmtIdx + 1)) map cfg.bounds
+			if (subs.nonEmpty) stmtIdx = subs.last._1
+		      case _ =>
+		    }
 		    (stmtBeg, stmtIdx)
 		  }
       (zBeg, stmts.toList, zEnd)
