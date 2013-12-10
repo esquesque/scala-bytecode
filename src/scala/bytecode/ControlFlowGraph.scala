@@ -29,8 +29,13 @@ abstract class ControlFlowGraph(val method: MethodInfo) {
   def predecessors(b: (Int, Int)): List[(Int, Int)] = predecessors(b._1)
   def successors(b: (Int, Int)): List[(Int, Int)] = successors(b._2)
 
-  def blocks(frames: Array[Frame]): List[ast.Block] = bounds.zipWithIndex map {
-    case (b, x) => new ast.Block(x, b, method, this, frames)
+  def blocks(frames: Array[Frame]): List[ast.Block] = {
+    var bs: List[ast.Block] = null
+    val getblocks: () => List[ast.Block] = () => bs
+    bs = bounds.zipWithIndex map {
+      case (b, x) => new ast.Block(x, b, method, frames, this, getblocks)
+    }
+    bs
   }
 
   case class Node(n: Int, b: (Int, Int), succs: List[(Int, Int)])

@@ -14,3 +14,5 @@ TODO -- redundant vars can be eliminated in some situations such as: iload(x), i
 Next, the AST is created. TODO -- apply transform to the AST to obtain short-circuit or and and if stmts;
 apply transform to that AST to obtain for and while stmts. Somewhere in there a dominance frontier analysis is done
 to determine which var stores are actually declarations.
+
+

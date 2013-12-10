@@ -24,8 +24,8 @@ object AnchorTernaryStmts extends MethodInfo.CFGTransform {
   val interpreter = MethodInfo.basicInterpreter
 
   def apply(method: MethodInfo,
-	    cfg: ControlFlowGraph,
-	    frames: Array[Frame]): MethodInfo.Changes = {
+	    frames: Array[Frame],
+	    cfg: ControlFlowGraph): MethodInfo.Changes = {
     var curLocal = method.node.maxLocals
     def nextLocal(desc: Option[String]): Int = desc match {
       case Some(wide) if (wide equals "J") || (wide equals "D") =>
@@ -33,7 +33,23 @@ object AnchorTernaryStmts extends MethodInfo.CFGTransform {
       case _ =>
 	curLocal += 1; curLocal - 1
     }
-    println(cfg.bounds filter { case (beg, _) => frames(beg).getStackSize > 0 })
-    MethodInfo.Changes(None, Some(curLocal), Nil)
+    val nonZeroBlockBounds = cfg.bounds filter {
+      case (beg, _) => frames(beg).getStackSize > 0
+    }
+    val spec: MethodInfo.InsnSpec =
+      (for (bound <- nonZeroBlockBounds) yield {
+	val depth = frames(bound._1).getStackSize
+	val localSpecs = stackDescs(frames(bound._1)) map (desc =>
+	  (nextLocal(desc), desc))
+	println(localSpecs)
+	val loads = localSpecs map { case (v, desc) => load(v, desc) }
+	(for (pred <- cfg predecessors bound) yield {
+          val insertIdx = ((pred._1 until pred._2).reverse find (idx =>
+	    frames(idx + 1).getStackSize == depth)).get + 1
+          val stores = localSpecs map { case (v, desc) => store(v, desc) }
+          (insertIdx, insertIdx) -> stores
+	} ) ++ ((bound._1 + 1, bound._1 + 1) -> loads :: Nil)
+      } ).flatten
+    MethodInfo.Changes(None, Some(curLocal), spec)
   }
 }

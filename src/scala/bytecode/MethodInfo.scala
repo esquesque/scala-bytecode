@@ -190,7 +190,7 @@ object MethodInfo {
   val sourceAnalyzer: Analyzer = new Analyzer(sourceInterpreter)
 
   trait AnalyzeTransform extends Transform
-			 with Function2[MethodInfo, Array[Frame], Changes] {
+			 with Function1[MethodInfo, Changes] {
     def analyzer(method: MethodInfo): Analyzer
     def apply(method: MethodInfo, frames: Array[Frame]): Changes
 
@@ -239,12 +239,12 @@ object MethodInfo {
   trait CFGTransform extends AnalyzeTransform {
     def interpreter: Interpreter
     def apply(method: MethodInfo,
-	      cfg: ControlFlowGraph,
-	      frames: Array[Frame]): Changes
+	      frames: Array[Frame],
+	      cfg: ControlFlowGraph): Changes
 
     def analyzer(method: MethodInfo) = method.cfgAnalyzer(interpreter)
 
     def apply(method: MethodInfo, frames: Array[Frame]): Changes =
-      apply(method, method.cfg, frames)
+      apply(method, frames, method.cfg)
   }
 }

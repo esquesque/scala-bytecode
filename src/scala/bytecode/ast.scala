@@ -303,8 +303,15 @@ object ast {
   class Block(val ordinal: Int,
 	      val bound: (Int, Int),
 	      val info: MethodInfo,
+	      val frames: Array[Frame],
 	      val cfg: ControlFlowGraph,
-	      val frames: Array[Frame]) extends Exec {
+	      val getblocks: () => List[Block]) extends Exec {
+      private lazy val blocks = getblocks()
+
+      lazy val predecessors: List[Block] = {
+	cfg.predecessors(bound) map (pred => blocks(cfg.bounds.indexOf(pred)))
+      }
+
 /*    lazy val dominator: Option[Block] =
       info.cfg.dominators(ordinal) match {
 	case self if self == bound => None
@@ -337,12 +344,23 @@ object ast {
       loc
     }
 
+    //TODO
+    def mergePredLocal(v: Int): Option[Local] = {
+      (predecessors map (_.locals(v))).headOption
+    }
+
     def loadLocal(v: Int): Local = locals(v) match {
       case null if v == 0 && ! (info is 'static) =>
 	local(0, 'this, info.owner.desc)
       case null => info.arguments.find(_._1 == v) match {
 	case Some((_, desc)) => local(v, Symbol("arg_"+ v), desc)
-	case None => throw new RuntimeException("var_"+ v +" is unavailable")
+	case None => mergePredLocal(v) match {
+	  case Some(loc) =>
+	    locals(v) = loc
+	    loc
+	  case None =>
+	    throw new RuntimeException("var_"+ v +" is unavailable")
+	}
       }
       case loc => loc
     }
