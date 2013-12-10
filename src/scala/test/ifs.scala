@@ -37,8 +37,9 @@ object ifs {
   val nonzero_ternary = {
     val lbl0 = label()
     val lbl1 = label()
+    val lbl2 = label()
     insnList(
-      ipush(1),
+      ipush(0xabcd),
       iload(0),
       ifeq(lbl0),
       apush("x"),
@@ -46,7 +47,10 @@ object ifs {
       lbl0,
       apush("y"),
       lbl1,
-      invokestatic("foo", "bar", "(ILjava/lang/String;)V"))
+      invokestatic("foo", "bar", "(Ljava/lang/String;)I"),
+      if_icmpeq(lbl2),
+      invokestatic("foo", "baz", "()V"),
+      lbl2)
   }
 
   val methods: List[MethodInfo] = (
