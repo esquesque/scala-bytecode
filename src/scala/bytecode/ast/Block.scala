@@ -50,6 +50,8 @@ class Block(val ordinal: Int,
       case subs => subs map blocks
     }
 
+  lazy val dominates: Boolean = dominated.length > 0
+
   lazy val dominanceFrontier: List[Block] =
     info.cfg.dominanceFrontiers(ordinal).toList map blocks
 

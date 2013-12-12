@@ -17,13 +17,21 @@
 
 package scala.bytecode.ast
 
-case class If(cond: Cond, stmt: Stmt) extends Stmt {
+case class If(cond: Cond, stmts: Stmt*) extends Stmt {
   def out(ps: java.io.PrintStream, indent: Int) {
     ps append " "* indent
     ps append "if ("
     ps append (cond show false)
     ps append ") "
-    stmt.out(ps, if (stmt.isInstanceOf[Goto]) 0 else indent + 2)
+    stmts.toList match {
+      case then :: Nil =>
+	then.out(ps, if (then.isInstanceOf[Goto]) 0 else indent)
+      case then :: elses =>
+	then.out(ps, indent)
+	elses foreach { els =>
+	  els.out(ps, indent)
+	}
+    }
     ps.flush
   }
 }
