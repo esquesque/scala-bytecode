@@ -22,16 +22,23 @@ import scala.bytecode.MethodInfo
 class MethodDecl(val modifiers: List[Symbol],
 		 val name: String,
 		 val desc: String,
+		 val argLocals: List[Local],
 		 val thrown: List[String],
 		 val body: List[Stmt]) extends Exec {
+  val returnDesc: String = desc substring ((desc indexOf ')') + 1)
+
   def out(ps: java.io.PrintStream, indent: Int) {
     ps append " "* indent
     if (modifiers.nonEmpty) {
-      ps append modifiers.map(_.name).mkString(" ")
+      ps append (modifiers map (_.name) mkString " ")
       ps append " "
     }
+    ps append returnDesc
+    ps append ' '
     ps append name
-    ps append desc
+    ps append '('
+    ps append (argLocals map (_ show false) mkString ", ")
+    ps append ')'
     thrown match {
       case x if x.nonEmpty => ps append x.mkString(" throws ", ", ", "")
       case _ =>
@@ -53,10 +60,23 @@ object MethodDecl {
   def apply(method: MethodInfo): MethodDecl = {
     val analyzer = method.cfgAnalyzer(MethodInfo.sourceInterpreter)
     val frames = analyzer.analyze(method.owner.name, method.node)
+    val cfg = method.cfg
+    val blocks = cfg.mkblocks(frames)
+    val entry = blocks.head
+    val argLocals = method.arguments map {
+      case (v, desc) => entry.local(v, Symbol("arg_"+ v), desc)
+    }
+    blocks foreach { block =>
+      println(block)
+      println("dominated by: "+ block.dominator)
+      println("dominates: "+ block.dominated)
+      println("dominance frontier: "+ block.dominanceFrontier)
+    }
     new MethodDecl(method.modifiers,
 		   method.name,
 		   method.desc,
+		   argLocals,
 		   method.thrown,
-		   method.cfg.blocks(frames))
+		   blocks)
   }
 }

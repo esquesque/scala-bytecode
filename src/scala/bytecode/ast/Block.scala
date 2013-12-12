@@ -28,29 +28,30 @@ class Block(val ordinal: Int,
 	    val info: MethodInfo,
 	    val frames: Array[Frame],
 	    val cfg: ControlFlowGraph,
-	    val getblocks: () => List[Block])
-extends Exec {
+	    getblocks: () => List[Block]) extends Exec {
   private lazy val blocks = getblocks()
 
-  lazy val predecessors: List[Block] = {
-    cfg.predecessors(bound) map (pred => blocks(cfg.bounds.indexOf(pred)))
-  }
+  lazy val predecessors: List[Block] =
+    (cfg predecessors bound) map (pred => blocks(cfg.bounds indexOf pred))
 
-/*    lazy val dominator: Option[Block] =
-      info.cfg.dominators(ordinal) match {
-	case self if self == bound => None
-	case dom => Some(info.cfg.blocks(info.cfg.bounds indexOf dom))
-      }
+  lazy val successors: List[Block] =
+    (cfg successors bound) map (succ => blocks(cfg.bounds indexOf succ))
 
-    /* excludes self-domination by entry block */
-    lazy val dominated: List[Block] =
-      (info.cfg.dominatedBy(ordinal)).toList match {
-	case self :: rest if self == ordinal => rest map info.cfg.blocks
-	case subs => subs map info.cfg.blocks
-      }
+  lazy val dominator: Option[Block] =
+    cfg.dominators(ordinal) match {
+      case self if self == bound => None
+      case dom => Some(blocks(cfg.bounds indexOf dom))
+    }
 
-    lazy val dominanceFrontier: List[Block] =
-      (info.cfg.dominanceFrontiers(ordinal)).toList map info.cfg.blocks*/
+  /* excludes self-domination by entry block */
+  lazy val dominated: List[Block] =
+    cfg.dominatedBy(ordinal).toList match {
+      case self :: rest if self == ordinal => rest map blocks
+      case subs => subs map blocks
+    }
+
+  lazy val dominanceFrontier: List[Block] =
+    info.cfg.dominanceFrontiers(ordinal).toList map blocks
 
   /* check ordinal and bound */
   def ordinallyPrecedes(subseq: Block*): Boolean = subseq.headOption match {
@@ -62,9 +63,9 @@ extends Exec {
 
   private val locals: Array[Local] = new Array(info.node.maxLocals)
 
-  private def local(index: Int, id: Symbol, desc: String): Local = {
-    val loc = Local(index, id, desc)
-    locals(index) = loc
+  def local(v: Int, id: Symbol, desc: String): Local = {
+    val loc = Local(v, id, desc)
+    locals(v) = loc
     loc
   }
 
@@ -81,7 +82,7 @@ extends Exec {
       case None => mergePredLocal(v) match {
 	case Some(loc) =>
 	  locals(v) = loc
-	loc
+	  loc
 	case None =>
 	  throw new RuntimeException("var_"+ v +" is unavailable")
       }
@@ -100,8 +101,6 @@ extends Exec {
   }
 
   def labelId(insn: Insn): Symbol = Symbol(insnName(insn))
-
-  //private def getblk(insn: Insn): () => Option[Block] = 
 
   private def mkgoto(lbl: Insn): Goto = Goto(labelId(lbl), {
     val x = info.instructions.indexOf(lbl)
@@ -246,5 +245,17 @@ extends Exec {
     ps append "->; ->"
     ps append info.cfg.successors(bound).map(str).mkString("[", ", ", "]")
     ps append '\n'
+  }
+
+  override def toString = {
+    val insns = info.instructions
+    "[#"+ ordinal +"; "+ bound._1 +".."+ bound._2 +"; "+ (bound match {
+      case (beg, end) if beg == end - 1 =>
+	insnString(insns(beg))
+      case (beg, end) if beg == end - 2 =>
+	insnString(insns(beg)) +"; "+ insnString(insns(end - 1))
+      case (beg, end) =>
+	insnString(insns(beg)) +"..."+ insnString(insns(end - 1))
+    } ) +']'
   }
 }
