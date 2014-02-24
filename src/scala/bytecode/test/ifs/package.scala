@@ -2,7 +2,7 @@ package scala.bytecode.test
 
 package object ifs {
   val cases: List[ASTCase] =
-    //if_then ::
+    if_then ::
     //if_else ::
     if_and ::
     if_and_else ::

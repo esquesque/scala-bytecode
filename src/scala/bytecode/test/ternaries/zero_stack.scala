@@ -6,7 +6,7 @@ object zero_stack extends scala.bytecode.test.ASTCase {
   val maxStack = 3
   val maxLocals = 2
   val name = "z_stack"
-  val desc = "()V"
+  val desc = "(Z)V"
   val insns = {
     val lbl0 = label()
     val lbl1 = label()

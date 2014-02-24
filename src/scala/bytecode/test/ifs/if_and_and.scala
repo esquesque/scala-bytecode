@@ -10,8 +10,6 @@ object if_and_and extends scala.bytecode.test.ASTCase {
   val desc = "(ZZZ)V"
   val insns = {
     val lbl0 = label()
-    val lbl1 = label()
-    val lbl2 = label()
     insnList(
       iload(0),
       ifeq(lbl0),

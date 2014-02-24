@@ -26,24 +26,23 @@ class MethodDecl(val modifiers: List[Symbol],
 		 val thrown: List[String],
 		 val blocks: List[Block]) extends Exec {
   val returnDesc: String = desc substring ((desc indexOf ')') + 1)
+  val body: List[Stmt] = structure(blocks.head)
 
-  def combIfs(head: Block, cond: Cond, ifs: List[Block], thenBlock: Block): Cond = {
+  def combIfs(head: Block, cond: Cond, ifs: List[Block], theN: Block): Cond =
     ifs match {
       case Nil => cond.invert
       case IfBlock(next, _, cond1) :: rest =>
 	val succs = head.successors
 	val sect = succs intersect next.successors
-	if (sect exists (_.ordinal < thenBlock.ordinal))//lha
-	  combIfs(next,
-		  if (succs contains thenBlock) Or(cond, cond1)
-		  else And(cond.invert, cond1), rest, thenBlock)
+	if (sect exists (_.ordinal < theN.ordinal))//lha
+	  combIfs(next, if (succs contains theN) Or(cond, cond1)
+			else And(cond.invert, cond1), rest, theN)
 	else//rha
-	  if (succs contains thenBlock)
-	    Or(cond, combIfs(next, cond1, rest, thenBlock))
+	  if (succs contains theN)
+	    Or(cond, combIfs(next, cond1, rest, theN))
 	  else
-	    And(cond.invert, combIfs(next, cond1, rest, thenBlock))
+	    And(cond.invert, combIfs(next, cond1, rest, theN))
     }
-  }
 
   def structIf(head: Block, cond: Cond): Stmt = {
     val hord = head.ordinal
@@ -63,23 +62,19 @@ class MethodDecl(val modifiers: List[Symbol],
     }
   }
 
-  def structure(head: Block): List[Stmt] = {
-    (head match {
-      case IfBlock(_, init, cond) =>
-	val stmts: List[Stmt] = init :+ structIf(head, cond)
-	head.dominanceFrontier match {
-	  case Nil => (stmts, Some(head.dominated.last))
-	  case next :: Nil => (stmts, Some(next))
-	  case _ => (stmts, None)
-	}
-      case _ => (head.body, None)
-    } ) match {
-      case (stmts, None) => stmts
-      case (stmts, Some(next)) => stmts ++ structure(next)
-    }
+  def structure(head: Block): List[Stmt] = (head match {
+    case IfBlock(_, init, cond) =>
+      val stmts: List[Stmt] = init :+ structIf(head, cond)
+      head.dominanceFrontier match {
+	case Nil => (stmts, Some(head.dominated.last))
+	case next :: Nil => (stmts, Some(next))
+	case _ => (stmts, None)
+      }
+    case _ => (head.body, None)
+  } ) match {
+    case (stmts, None) => stmts
+    case (stmts, Some(next)) => stmts ++ structure(next)
   }
-
-  val body: List[Stmt] = structure(blocks.head)
 
   def out(ps: java.io.PrintStream, indent: Int) {
     ps append " "* indent

@@ -19,4 +19,10 @@ package scala.bytecode.ast
 
 case class Ne(left: Expr, right: Expr) extends Cond("!=") {
   lazy val invert = Eq(left, right)
+
+  override def show(cap: Boolean) = (left, right) match {
+    case (Push(0), expr) if expr.desc equals "Z" => expr show false
+    case (expr, Push(0)) if expr.desc equals "Z" => expr show false
+    case _ => super.show(cap)
+  }
 }

@@ -21,7 +21,7 @@ trait Suite {
 	val r = c.apply
 	c match {
 	  case astc: ASTCase => astc.tree.out(pnt(len), 2)
-	  case _ =>
+	  case _ => c.method.tree.out(pnt(len), 2)
 	}
 	r
       } catch { case x: Throwable => x.printStackTrace; false }
