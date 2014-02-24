@@ -159,9 +159,8 @@ abstract class ControlFlowGraph(val method: MethodInfo) {
 
   lazy val dominatedBy: Array[BitSet] = {
     val subs = Array.fill(bounds.length)(BitSet.empty)
-    for (i <- 0 until bounds.length) {
+    for (i <- 0 until bounds.length)
       subs(bounds indexOf dominators(i)) += i
-    }
     subs
   }
 
@@ -180,5 +179,14 @@ abstract class ControlFlowGraph(val method: MethodInfo) {
 	}
     }
     dfs
+  }
+
+  lazy val dominanceLostBy: Array[BitSet] = {
+    val x = Array.fill(bounds.length)(BitSet.empty)
+    for (i <- 0 until bounds.length) {
+      val df = dominanceFrontiers(i)
+      df foreach (idx => x(idx) += i)
+    }
+    x
   }
 }

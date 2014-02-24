@@ -27,43 +27,59 @@ class MethodDecl(val modifiers: List[Symbol],
 		 val blocks: List[Block]) extends Exec {
   val returnDesc: String = desc substring ((desc indexOf ')') + 1)
 
-  def structure(block: Block): List[Stmt] = {
-    println(block)
-    val init: List[Stmt] = block.body match {
-      case _ :: Nil => Nil
-      case body => body.init
+  def combIfs(head: Block, cond: Cond, ifs: List[Block], thenBlock: Block): Cond = {
+    ifs match {
+      case Nil => cond.invert
+      case IfBlock(next, _, cond1) :: rest =>
+	val succs = head.successors
+	val sect = succs intersect next.successors
+	if (sect exists (_.ordinal < thenBlock.ordinal))//lha
+	  combIfs(next,
+		  if (succs contains thenBlock) Or(cond, cond1)
+		  else And(cond.invert, cond1), rest, thenBlock)
+	else//rha
+	  if (succs contains thenBlock)
+	    Or(cond, combIfs(next, cond1, rest, thenBlock))
+	  else
+	    And(cond.invert, combIfs(next, cond1, rest, thenBlock))
     }
-    val last: Stmt = block.body.last
-    val stmtsAndNextBlock: (List[Stmt], Option[Block]) = last match {
-      case If(cond, stmt) =>
-	block.dominated match {
-	  case sub :: Nil =>
-	    println("1 "+ sub)
-	    sub.dominanceFrontier match {
-	      case block :: Nil =>
-		(init :+ If(cond, Then(sub.body)),
-		 Some(block))
-	      case _ => throw new RuntimeException
-	    }
-	  case sub0 :: sub1 :: _ =>
-	    println("2+ "+ sub0 +" "+ sub1)
-	    sub0.dominanceFrontier match {
-	      case block :: Nil =>
-		(init :+ If(cond, Then(sub0.body), Else(structure(sub1))),
-		 Some(block))
-	      case _ => throw new RuntimeException
-	    }
-	}
-      case _ =>
-	println()
-	(block.body, None)
-    }
-    val stmts = stmtsAndNextBlock._1
-    val nextBlock = stmtsAndNextBlock._2
-    stmts ++ ((nextBlock map structure) getOrElse Nil)
   }
 
-  lazy val body: List[Stmt] = structure(blocks.head)
+  def structIf(head: Block, cond: Cond): Stmt = {
+    val hord = head.ordinal
+    val exit = head.dominated.last
+    val n = exit.ordinal - head.ordinal
+    if ((head span exit).size % 2 == 0) {//TODO deal with else structure (elif)
+      val ifBlocks = (1 until n - 2).toList map (m => blocks(hord + m))
+      val thenBlock = exit.predecessors.init.last
+      val elseBlock = exit.predecessors.last
+      If(combIfs(head, cond, ifBlocks, thenBlock),
+	 Then(thenBlock.body), Else(elseBlock.body))
+    } else {
+      val ifBlocks = (1 until n - 1).toList map (m => blocks(hord + m))
+      val thenBlock = exit.predecessors.last
+      If(combIfs(head, cond, ifBlocks, thenBlock),
+	 Then(thenBlock.body))
+    }
+  }
+
+  def structure(head: Block): List[Stmt] = {
+    (head match {
+      case IfBlock(_, init, cond) =>
+	val stmts: List[Stmt] = init :+ structIf(head, cond)
+	head.dominanceFrontier match {
+	  case Nil => (stmts, Some(head.dominated.last))
+	  case next :: Nil => (stmts, Some(next))
+	  case _ => (stmts, None)
+	}
+      case _ => (head.body, None)
+    } ) match {
+      case (stmts, None) => stmts
+      case (stmts, Some(next)) => stmts ++ structure(next)
+    }
+  }
+
+  val body: List[Stmt] = structure(blocks.head)
 
   def out(ps: java.io.PrintStream, indent: Int) {
     ps append " "* indent

@@ -23,6 +23,8 @@ import org.objectweb.asm.tree.analysis.{Frame, SourceValue}
 import scala.bytecode.{MethodInfo, ControlFlowGraph}
 import scala.bytecode.asm._
 
+import scala.collection.immutable.HashSet
+
 class Block(val ordinal: Int,
 	    val bound: (Int, Int),
 	    val info: MethodInfo,
@@ -36,6 +38,14 @@ class Block(val ordinal: Int,
 
   lazy val successors: List[Block] =
     (cfg successors bound) map (succ => blocks(cfg.bounds indexOf succ))
+
+  def span(to: Block): Set[(Block, Block)] = {
+    val succs = successors filter (_.ordinal <= to.ordinal)
+    val edges =
+      if (succs.isEmpty) HashSet.empty
+      else succs map (_ span to) reduce (_ ++ _)
+    edges ++ HashSet(succs map (succ => this -> succ): _*)
+  }
 
   lazy val dominator: Option[Block] =
     cfg.dominators(ordinal) match {
@@ -54,6 +64,9 @@ class Block(val ordinal: Int,
 
   lazy val dominanceFrontier: List[Block] =
     info.cfg.dominanceFrontiers(ordinal).toList map blocks
+
+  lazy val dominanceLost: List[Block] =
+    info.cfg.dominanceLostBy(ordinal).toList map blocks
 
   /* check ordinal and bound */
   def ordinallyPrecedes(subseq: Block*): Boolean = subseq.headOption match {
@@ -259,5 +272,10 @@ class Block(val ordinal: Int,
       case (beg, end) =>
 	insnString(insns(beg)) +"..."+ insnString(insns(end - 1))
     } ) +']'
+  }
+
+  override def equals(any: Any): Boolean = any match {
+    case block: Block => block.ordinal == ordinal && (block.bound equals bound)
+    case _ => false
   }
 }

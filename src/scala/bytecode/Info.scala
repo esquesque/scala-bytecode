@@ -17,11 +17,11 @@
 
 package scala.bytecode
 
-trait Info[Node, AST <: ast.AST] {
+trait Info[Node, Tree <: ast.AST] {
   def cxt: Cxt
   def node: Node
 
-  def tree: AST
+  def tree: Tree
 
   def modifiers: List[Symbol]
 

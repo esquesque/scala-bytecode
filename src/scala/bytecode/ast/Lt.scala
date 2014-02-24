@@ -17,4 +17,6 @@
 
 package scala.bytecode.ast
 
-case class Lt(left: Expr, right: Expr) extends Cond("<", Ge(_, _))
+case class Lt(left: Expr, right: Expr) extends Cond("<") {
+  lazy val invert = Ge(left, right)
+}

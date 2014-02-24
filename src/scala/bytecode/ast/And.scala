@@ -17,4 +17,6 @@
 
 package scala.bytecode.ast
 
-case class And(left: Cond, right: Cond) extends Cond("&&", null)
+case class And(left: Cond, right: Cond) extends ShortCircuit("&&") {
+  lazy val invert = Or(left.invert, right.invert)
+}

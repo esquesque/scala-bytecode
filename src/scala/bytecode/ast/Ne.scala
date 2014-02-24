@@ -17,4 +17,6 @@
 
 package scala.bytecode.ast
 
-case class Ne(left: Expr, right: Expr) extends Cond("!=", Eq(_, _))
+case class Ne(left: Expr, right: Expr) extends Cond("!=") {
+  lazy val invert = Eq(left, right)
+}

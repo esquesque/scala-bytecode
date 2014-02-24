@@ -33,4 +33,28 @@ package object ast {
 
   val Zero = Push(0)
   val Null = Push(null)
+
+  object IfBlock {
+    def unapply(block: Block): Option[(Block, List[Stmt], Cond)] = {
+      val body = block.body
+      val init = body match {
+	case _ :: Nil => Nil
+	case body => body.init
+      }
+      body.last match {
+	case If(cond, _) =>
+	  Some((block, init, cond))
+	case _ => None
+      }
+    }
+  }
+
+  object DomBlock {
+    def unapply(block: Block): Option[(List[Block], List[Block])] = {
+      val subs = block.dominated
+      val df = block.dominanceFrontier
+      if (subs.nonEmpty || df.nonEmpty) Some((subs, df))
+      else None
+    }
+  }
 }

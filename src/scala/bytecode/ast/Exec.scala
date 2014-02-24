@@ -18,3 +18,10 @@
 package scala.bytecode.ast
 
 trait Exec extends Stmt { def body: List[Stmt] }
+
+object Exec {
+  def unapply(stmt: Stmt): Option[List[Stmt]] = stmt match {
+    case exec: Exec => Some(exec.body)
+    case _ => None
+  }
+}

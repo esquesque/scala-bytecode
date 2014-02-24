@@ -17,19 +17,17 @@
 
 package scala.bytecode.ast
 
-abstract class Cond(val string: String, invert: (Expr, Expr) => Cond)
-	 extends Expr {
+abstract class Cond(val string: String) extends Expr {
   def left: Expr
   def right: Expr
 
-  val desc = "Z"
-  lazy val inverse = invert(left, right)
+  def invert: Cond
 
-  def show(cap: Boolean) =
+  val desc = "Z"
+
+  def show(cap: Boolean) = {
     left.show(true) +
     " "+ string +" "+
-    right.show(true) match {
-      case str if cap => "("+ str +")"
-      case str => str
-    }
+    right.show(true)
+  }
 }
