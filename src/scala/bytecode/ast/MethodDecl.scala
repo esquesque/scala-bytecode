@@ -46,7 +46,16 @@ class MethodDecl(val modifiers: List[Symbol],
 
   def structIf(head: Block, cond: Cond): Stmt = {
     val hord = head.ordinal
-    val exit = head.dominated.last
+    val exit = head.dominanceFrontier match {
+      case Nil => head.dominated.last
+      case x :: Nil => x
+      case x =>
+	println(x mkString "; ")
+	throw new RuntimeException
+    }
+/*    println("head="+head)
+    println("exit="+exit)
+    println("head_df="+head.dominanceFrontier.mkString("; "))*/
     val n = exit.ordinal - head.ordinal
     if ((head span exit).size % 2 == 0) {//TODO deal with else structure (elif)
       val ifBlocks = (1 until n - 2).toList map (m => blocks(hord + m))
@@ -68,6 +77,9 @@ class MethodDecl(val modifiers: List[Symbol],
       head.dominanceFrontier match {
 	case Nil => (stmts, Some(head.dominated.last))
 	case next :: Nil => (stmts, Some(next))
+	case h :: x =>
+	  println("~~~"+h+" :: "+x)
+	  throw new RuntimeException
 	case _ => (stmts, None)
       }
     case _ => (head.body, None)

@@ -1,6 +1,7 @@
 package scala.bytecode.test.ternaries
 
 import scala.bytecode.asm._
+import scala.bytecode.ast._
 
 object nonzero_stack extends scala.bytecode.test.ASTCase {
   val maxStack = 3
@@ -28,6 +29,10 @@ object nonzero_stack extends scala.bytecode.test.ASTCase {
   }
 
   val test: Test = {
+    case Exec(Store(_, _) ::
+	      If(Ne(_, _), Then(_), Else(_)) ::
+	      Label(_) ::
+	      If(Ne(_, _), Then(_)) :: _) => true
     case _ => false
   }
 }

@@ -46,7 +46,7 @@ object AnchorFloatingStmts extends MethodInfo.CFGTransform {
 		    insns(stmtIdx) match {
 		      case JumpInsnNode(_, lbl) =>
 			val ord = cfg.bounds.indexWhere(_._2 == stmtIdx + 1)
-			println("df"+ cfg.bounds(ord) +"="+ (cfg.dominanceFrontiers(ord) map cfg.bounds))
+			//println("df"+ cfg.bounds(ord) +"="+ (cfg.dominanceFrontiers(ord) map cfg.bounds))
 		        stmtIdx = cfg.bounds(cfg.dominanceFrontiers(ord).head)._1
 		      case _ =>
 		    }
