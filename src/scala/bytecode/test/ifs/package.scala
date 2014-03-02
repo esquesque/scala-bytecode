@@ -25,6 +25,8 @@ package object ifs {
     //if_or_And_else ::
 //
     //how many combinations of 4-cond 3-short-circuits are there?
+    if_and_and_and ::
+    //if_or_or_or ::
     if_AND_Or_and ::
     Nil
 }

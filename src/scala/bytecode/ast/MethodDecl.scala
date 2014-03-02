@@ -53,9 +53,10 @@ class MethodDecl(val modifiers: List[Symbol],
 	println(x mkString "; ")
 	throw new RuntimeException
     }
-/*    println("head="+head)
+    println("head="+head)
     println("exit="+exit)
-    println("head_df="+head.dominanceFrontier.mkString("; "))*/
+    println("head_ds="+head.dominated.mkString("; "))
+    println("head_df="+head.dominanceFrontier.mkString("; "))
     val n = exit.ordinal - head.ordinal
     if ((head span exit).size % 2 == 0) {//TODO deal with else structure (elif)
       val ifBlocks = (1 until n - 2).toList map (m => blocks(hord + m))

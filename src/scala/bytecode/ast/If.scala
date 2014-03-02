@@ -24,12 +24,12 @@ case class If(cond: Cond, stmts: Stmt*) extends Stmt {
     ps append (cond show false)
     ps append ") "
     stmts.toList match {
-      case then :: Nil =>
-	then.out(ps, if (then.isInstanceOf[Goto]) 0 else indent)
-      case then :: elses =>
-	then.out(ps, indent)
-	elses foreach { els =>
-	  els.out(ps, indent)
+      case theN :: Nil =>
+	theN.out(ps, if (theN.isInstanceOf[Goto]) 0 else indent)
+      case theN :: elses =>
+	theN.out(ps, indent)
+	elses foreach { elsE =>
+	  elsE.out(ps, indent)
 	}
     }
     ps.flush
