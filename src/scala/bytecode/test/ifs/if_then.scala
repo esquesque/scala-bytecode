@@ -19,7 +19,7 @@ object if_then extends scala.bytecode.test.ASTCase {
   }
 
   val test: Test = {
-    case Exec(If(Ne(_, _), Then(_)) :: _) => true
+    case Exec(If(True(_), Then(_)) :: _) => true
     case tree => false
   }
 }

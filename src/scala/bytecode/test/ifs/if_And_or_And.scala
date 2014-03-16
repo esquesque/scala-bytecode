@@ -6,7 +6,7 @@ import scala.bytecode.ast._
 object if_And_or_And extends scala.bytecode.test.ASTCase {
   val maxStack = 1
   val maxLocals = 4
-  val name = "if_(_&&_)||(_&&_))"
+  val name = "if_(_&&_)||(_&&_)"
   val desc = "(ZZZZ)V"
   val insns = {
     val lbl0 = label()
