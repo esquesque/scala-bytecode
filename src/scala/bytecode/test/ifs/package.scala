@@ -19,7 +19,7 @@ package object ifs {
 //
     //how many combinations of 4-cond 3-short-circuits are there?
     if_and_and_and ::
-    //if_or_or_or ::
+    if_or_or_or ::
 //
     if_and_Or_AND ::
     if_AND_Or_and ::
