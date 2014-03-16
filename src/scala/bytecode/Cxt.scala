@@ -20,12 +20,26 @@ package scala.bytecode
 import org.objectweb.asm.{ClassReader, Opcodes}
 import org.objectweb.asm.tree.ClassNode
 import scala.collection.immutable.{ListMap => IMap}
-import scala.collection.mutable.{HashMap => MMap}
+import scala.collection.mutable.{HashMap => MMap, HashSet => MSet}
 
 import java.io.{InputStream, File, FileInputStream}
+import java.util.jar.JarFile
 
 class Cxt {
   val pkgClasses: MMap[String, MMap[String, ClassInfo]] = MMap.empty
+  val resourceStreams: MMap[String, InputStream] = MMap.empty
+
+  def classes(pkgName: String): List[ClassInfo] =
+    pkgClasses.getOrElse(pkgName, MMap.empty).values.toList
+
+  def pkgs: List[Cxt.Pkg] = {
+    val pnt = Cxt.pkgNameTree(pkgClasses.keys.toSeq)
+    def mkpkg(name: String): Cxt.Pkg =
+      Cxt.Pkg(name, (pnt.getOrElse(name, Nil) map (sub =>
+	mkpkg(name +'/'+ sub))).toList, classes(name))
+    val rootNames = pnt.keys filterNot (_ contains '/')
+    (rootNames map mkpkg).toList
+  }
 
   def diff(other: ClassInfo, info: ClassInfo) {}
 
@@ -78,9 +92,29 @@ class Cxt {
   }
 
   def resolve(file: File): ClassInfo = resolve(new FileInputStream(file))
+
+  def resolveDir(dir: File): List[ClassInfo] =
+    (dir.listFiles.toList map (file =>
+      if (file.isDirectory) resolveDir(file)
+      else if (file.getName endsWith ".class") resolve(file) :: Nil
+      else Nil)).flatten
+
+  import scala.collection.JavaConversions._
+  def resolve(jf: java.util.jar.JarFile): List[Either[ClassInfo, InputStream]] =
+    (for (entry <- jf.entries) yield {
+      val name = entry.getName
+      if (name endsWith ".class") Left(resolve(jf.getInputStream(entry)))
+      else {
+	val stream = jf.getInputStream(entry)
+	resourceStreams(name) = stream
+	Right(stream)
+      }
+    } ).toList
 }
 
 object Cxt {
+  case class Pkg(name: String, subpkgs: List[Pkg], classes: List[ClassInfo])
+
   val default: Cxt = new Cxt
 
   import Opcodes._
@@ -106,6 +140,24 @@ object Cxt {
     'bridge    -> ACC_BRIDGE,    'varargs      -> ACC_VARARGS,
     'native    -> ACC_NATIVE,    'abstract     -> ACC_ABSTRACT,
     'strict    -> ACC_STRICT,    'synthetic    -> ACC_SYNTHETIC)
+
+  def pkgNameTree(names: Seq[String]): MMap[String, MSet[String]] = {
+    val pnt: MMap[String, MSet[String]] = MMap.empty
+    names foreach { n =>
+      val s = (n split '/').toList
+      val t = (s zip (0 until s.length)) map { case (p, q) => (s take q) :+ p }
+      t foreach {
+	case name :: Nil =>
+	  if (! (pnt contains name)) pnt(name) = MSet.empty
+	case splitNames =>
+	  val owner = splitNames.init mkString "/"
+	  val name = splitNames.last
+	  if (pnt contains owner) pnt(owner) += name
+	  else pnt(owner) = MSet(name)
+      }
+    }
+    pnt
+  }
 
   def pkg(qual: String): String = qual.lastIndexOf('/') match {
     case -1 => ""

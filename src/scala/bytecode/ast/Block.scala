@@ -180,7 +180,7 @@ class Block(val ordinal: Int,
     val stmt = insn match {
       case store(v, _) => storeLocal(v, f(0))
       case array.store(_) => ArrayStore(f(0), f(1), f(2))
-      //case pop() => Void
+      case pop() => Void(f(0))
       //case pop2() => Void
       case iinc(v, n) => Void(Inc(loadLocal(v), n))
       case label() => Label(labelId(insn))

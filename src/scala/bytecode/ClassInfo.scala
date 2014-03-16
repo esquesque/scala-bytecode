@@ -30,8 +30,20 @@ extends Info[ClassNode, ast.ClassDecl] {
   } filterNot (_.isEmpty) map (_.get)
 
   val name = node.name
+  val shortName =
+    if (name contains '/') name substring ((name lastIndexOf '/') + 1)
+    else name
   val desc = 'L' + name + ';'
-  val verbose = name
+  val verbose = {
+    val sb = new StringBuilder
+    if (modifiers.nonEmpty) {
+      sb append (modifiers filter (_ != 'interface) map (_.name) mkString " ")
+      sb append " "
+    }
+    sb append (if (this is 'interface) "interface " else "class ")
+    sb append name
+    sb.toString
+  }
 
   val superName = if (node.superName == null) "java/lang/Object"
 		  else node.superName
