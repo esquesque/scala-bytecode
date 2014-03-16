@@ -20,9 +20,8 @@ package scala.bytecode.ast
 case class Label(symbol: Symbol) extends Stmt {
   def out(ps: java.io.PrintStream, indent: Int) {
     ps append " "* indent
-    ps append ':'
     ps append symbol.name
-    ps append ';'
+    ps append ':'
     ps.flush
   }
 }

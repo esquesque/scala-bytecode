@@ -65,7 +65,7 @@ package object asm {
   /* @return mnemonic of insn.
    */
   def insnName(insn: Insn): String = insn match {
-    case asm.LabelNode(_) => "0x"+ insn.hashCode.toHexString
+    case asm.LabelNode(_) => "label_0x"+ insn.hashCode.toHexString
     case asm.JumpInsnNode(opcode, lbl) =>
       MNEMS(opcode).toLowerCase +"->"+ insnName(lbl)
     case _ => MNEMS(insn.getOpcode).toLowerCase
