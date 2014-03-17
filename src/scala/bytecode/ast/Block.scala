@@ -86,6 +86,7 @@ class Block(val ordinal: Int,
 
   //TODO
   def mergePredLocal(v: Int): Option[Local] = {
+    predecessors foreach (_.body)
     (predecessors map (_.loadLocal(v))).headOption
   }
 
@@ -99,7 +100,7 @@ class Block(val ordinal: Int,
 	  locals(v) = loc
 	  loc
 	case None =>
-	  throw new RuntimeException("var_"+ v +" is unavailable")
+	  throw new RuntimeException("block_"+ ordinal +" var_"+ v +" is unavailable")
       }
     }
     case loc => loc
@@ -110,9 +111,13 @@ class Block(val ordinal: Int,
       case Some((_, desc)) =>
 	Store(local(v, Symbol("arg_"+ v), expr.desc), expr)
       case None =>
-	Store(local(v, Symbol("var_"+ v), expr.desc), expr)
+	val loc = local(v, Symbol("var_"+ v), expr.desc)
+	locals(v) = loc
+	Store(loc, expr)
     }
-    case loc => Store(loc, expr)
+    case loc =>
+      locals(v) = loc
+      Store(loc, expr)
   }
 
   def labelId(insn: Insn): Symbol = Symbol(insnName(insn))

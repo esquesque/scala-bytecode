@@ -121,7 +121,7 @@ package object asm {
     case MethodInsnNode(_, owner, name, desc) =>
       insnName(insn) +" "+ owner +"/"+ name + desc
     case JumpInsnNode(_, target) => insnName(insn)
-    case LabelNode(label) => "label~"+ insnName(insn)
+    case LabelNode(label) => insnName(insn)
     case _ => insn.toString +"~"+ insnName(insn)
   }
 

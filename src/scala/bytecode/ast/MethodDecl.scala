@@ -58,7 +58,10 @@ class MethodDecl(val modifiers: List[Symbol],
     val hord = head.ordinal
     val exit = head.dominanceFrontier match {
       case Nil => head.dominated.last
-      case IfBlock(_, _, _) :: Nil => head.dominated.last
+      case IfBlock(blk, _, _) :: Nil =>
+	if ((head.ordinal until blk.ordinal) map (i => blocks(i) match {
+	  case IfBlock(_, _, _) => true; case _ => false
+	} ) reduce (_ & _)) head.dominated.last else blk
       case x :: Nil => x
       case x =>
 	println(x mkString "; ")
@@ -85,7 +88,11 @@ class MethodDecl(val modifiers: List[Symbol],
       val stmts: List[Stmt] = init :+ structIf(head, cond)
       head.dominanceFrontier match {
 	case Nil => (stmts, Some(head.dominated.last))
-	case IfBlock(_, _, _) :: Nil => (stmts, Some(head.dominated.last))
+	case IfBlock(blk, _, _) :: Nil =>
+	  if ((head.ordinal until blk.ordinal) map (i => blocks(i) match {
+	    case IfBlock(_, _, _) => true; case _ => false
+	  } ) reduce (_ & _)) (stmts, Some(head.dominated.last))
+	  else (stmts, Some(blk))
 	case next :: Nil => (stmts, Some(next))
 	case h :: x =>
 	  println("~~~"+h+" :: "+x)
