@@ -17,8 +17,15 @@
 
 package scala.bytecode.ast
 
-case class ArrayLength(ref: Expr) extends Expr {
-  val desc = "I"
-
-  def show(cap: Boolean) = (ref show true) +".length"
+case class Catch(body: List[Stmt], excn: Option[String]) extends Exec {
+  def out(ps: java.io.PrintStream, indent: Int) {
+    ps append " catch {\n"
+    body foreach { stmt =>
+      stmt.out(ps, indent + 2)
+      ps append '\n'
+    }
+    ps append " "* indent
+    ps append '}'
+    ps.flush
+  }
 }

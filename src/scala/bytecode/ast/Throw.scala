@@ -17,8 +17,11 @@
 
 package scala.bytecode.ast
 
-case class ArrayLength(ref: Expr) extends Expr {
-  val desc = "I"
-
-  def show(cap: Boolean) = (ref show true) +".length"
+case class Throw(ref: Expr) extends Stmt {
+  def out(ps: java.io.PrintStream, indent: Int) {
+    ps append "throw "
+    ps append (ref show false)
+    ps append ';'
+    ps.flush
+  }
 }

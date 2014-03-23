@@ -31,7 +31,9 @@ class Block(val ordinal: Int,
 	    val frames: Array[Frame],
 	    val cfg: ControlFlowGraph,
 	    getblocks: () => List[Block]) extends Exec {
+  type TryCatch = ((Int, Int), Int, Option[String])
   private lazy val blocks = getblocks()
+  private lazy val tryCatches = info.tryCatches
 
   lazy val predecessors: List[Block] =
     (cfg predecessors bound) map (pred => blocks(cfg.bounds indexOf pred))
@@ -74,6 +76,18 @@ class Block(val ordinal: Int,
     case Some(block) =>
       ordinal + 1 == block.ordinal && bound._2 == block.bound._1 &&
       block.ordinallyPrecedes(subseq.tail: _*)
+  }
+
+  def tryEntry: List[TryCatch] = tryCatches filter {
+    case (tryBound, _, _) => tryBound._1 == bound._1; case _ => false
+  }
+
+  def tryExit: List[TryCatch] = tryCatches filter {
+    case (tryBound, _, _) => tryBound._2 == bound._2; case _ => false
+  }
+
+  def catchHandler: Option[TryCatch] = tryCatches find {
+    case (_, catchIdx, _) => catchIdx == bound._1; case _ => false
   }
 
   private val locals: Array[Local] = new Array(info.node.maxLocals)
@@ -149,7 +163,7 @@ class Block(val ordinal: Int,
 	  case push(any) => Push(any)
 	  case load(v, _) => loadLocal(v)
 	  case array.load(desc) => ArrayLoad(f(0), f(1))
-	  case array.alloc(
+	  case array.alloc(desc) => ArrayAlloc(desc, f(0))
 	  case math(desc, operator, 1) => UnaryMath(desc, operator, f(0))
 	  case math(desc, operator, 2) => BinaryMath(desc, f(0), operator, f(1))
 	  case cast(from, to) => Cast(from, to, f(0))
@@ -192,7 +206,6 @@ class Block(val ordinal: Int,
       //case pop2() => Void
       case iinc(v, n) => Void(Inc(loadLocal(v), n))
       case label() => Label(labelId(insn))
-      case goto(lbl) => mkgoto(lbl)
       case ifeq(lbl) => If(mkcond1(Eq, f(0)), mkgoto(lbl))
       case ifne(lbl) => If(mkcond1(Ne, f(0)), mkgoto(lbl))
       case iflt(lbl) => If(mkcond1(Lt, f(0)), mkgoto(lbl))
@@ -209,6 +222,17 @@ class Block(val ordinal: Int,
       case if_acmpne(lbl) => If(Ne(f(0), f(1)), mkgoto(lbl))
       case ifnull(lbl) => If(Eq(f(0), Null), mkgoto(lbl))
       case ifnonnull(lbl) => If(Ne(f(0), Null), mkgoto(lbl))
+      case goto(lbl) => mkgoto(lbl)
+      //case jsr
+      //case ret
+      //case tableswitch
+      //case lookupswitch
+      case ireturn() => Return(Some(f(0)))
+      case lreturn() => Return(Some(f(0)))
+      case freturn() => Return(Some(f(0)))
+      case dreturn() => Return(Some(f(0)))
+      case areturn() => Return(Some(f(0)))
+      case vreturn() => Return(None)
       case putstatic(own, name, desc) =>
 	Store(Field(own, name, desc, None), f(0))
       case putfield(own, name, desc) =>
@@ -224,14 +248,10 @@ class Block(val ordinal: Int,
 	} )
       case invokestatic(own, name, desc) =>
 	Void(Method(own, name, desc, None, args))
-      //case invokeinterface
+      case invokeinterface(own, name, desc) =>
+	Void(Method(own, name, desc, args.headOption, args.tail))
       //case invokedynamic
-      case ireturn() => Return(Some(f(0)))
-      case lreturn() => Return(Some(f(0)))
-      case freturn() => Return(Some(f(0)))
-      case dreturn() => Return(Some(f(0)))
-      case areturn() => Return(Some(f(0)))
-      case vreturn() => Return(None)
+      case athrow() => Throw(f(0))
       //case monitorenter() =>
       //case monitorexit() =>
       case _ => throw new RuntimeException("mkstmt:"+ insnName(insn))

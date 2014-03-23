@@ -21,7 +21,8 @@ import org.objectweb.asm.{Opcodes, Type}
 import org.objectweb.asm.tree.{MethodNode,
 			       InsnList,
 			       AbstractInsnNode => Insn,
-			       TryCatchBlockNode}
+			       LabelNode,
+			       TryCatchBlockNode => TCB}
 import org.objectweb.asm.tree.analysis.{Analyzer,
 					BasicInterpreter,
 					BasicValue,
@@ -80,16 +81,25 @@ extends MemberInfo[MethodNode, ast.MethodDecl] {
     apply(CollapseStackManipulations, AnchorFloatingStmts)
 
   /* @return a 3-ple to avoid the need for a wrapper for TryCatchBlockNode;
-   *  first 2-ple is the try range and the second 2-ple is the catch range;
    *  third element is an optional exception descriptor (None for finally).
    */
-  def tryCatches: List[((Int, Int), (Int, Int), Option[String])] = {
-    val end = instructions.length
-    node.tryCatchBlocks.asInstanceOf[list[TryCatchBlockNode]].toList map {
-      tcb =>
-	val idx: Insn => Int = instructions indexOf _
-	((idx(tcb.start), idx(tcb.end)), (idx(tcb.handler), end),
-	 if (tcb.`type` == null) None else Some(tcb.`type`))
+  def tryCatches: List[((Int, Int), Int, Option[String])] = {
+    val idx: Insn => Int = instructions indexOf _
+    node.tryCatchBlocks.asInstanceOf[list[TCB]].toList map (tcb =>
+      ((idx(tcb.start), idx(tcb.end)),
+       idx(tcb.handler),
+       if (tcb.`type` == null) None else Some(tcb.`type`)))
+  }
+
+  def addTryCatch(tc: ((Int, Int), Int, Option[String])) {
+    addTryCatch(tc._1, tc._2, tc._3)
+  }
+
+  def addTryCatch(tryBound: (Int, Int), catchIdx: Int, excn: Option[String]) {
+    ((tryBound._1 :: tryBound._2 :: catchIdx :: Nil) map instructions) match {
+      case (s: LabelNode) :: (e: LabelNode) :: (h: LabelNode) :: _ =>
+	val tcb = new TCB(s, e, h, excn.orNull)
+	node.tryCatchBlocks.asInstanceOf[list[TCB]].add(tcb)
     }
   }
 

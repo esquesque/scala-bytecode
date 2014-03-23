@@ -14,11 +14,14 @@ trait Case[A] extends Function0[Boolean] {
   def desc: String
   def insns: RichInsnList
 
+  def tryCatches: List[((Int, Int), Int, Option[String])] = Nil
+
   lazy val method = {
     val m = ClassInfo.anonymous.newMethod('static)(
       name, desc, insns)
     m.node.maxStack = maxStack
     m.node.maxLocals = maxLocals
+    tryCatches foreach m.addTryCatch
     m
   }
 
