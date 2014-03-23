@@ -28,78 +28,67 @@ class MethodDecl(val modifiers: List[Symbol],
   val returnDesc: String = desc substring ((desc indexOf ')') + 1)
   val body: List[Stmt] = structure(blocks.head)
 
-  def combIfs(head: Block, cond: Cond, ifs: List[Block], theN: Block): Cond = {
-    //println("head="+head)
-    //println("head_ds="+head.dominated.mkString("; "))
-    //println("head_df="+head.dominanceFrontier.mkString("; "))
-    ifs match {
-      case Nil => cond.invert
-      case IfBlock(next, init, cond1) :: rest =>
-	val succs = head.successors
-	val sect = succs intersect next.successors
-	//println(if (sect exists (_.ordinal < theN.ordinal)) "lha" else "rha")
- 	//println(if (succs contains theN) "or" else "and")
-	val fuck = next.dominated match {//i'm not sure why this works yet
-	  case IfBlock(sub, _, _) :: _ => next.ordinal + 1 != sub.ordinal
-	  case _ => false
-	}
-	if (sect exists (_.ordinal < theN.ordinal))//lha
-	  combIfs(next, if (succs contains theN) Or(cond, cond1)
-			else And(cond.invert, if (fuck) cond1.invert else cond1), rest, theN)
-	else//rha
-	  if (succs contains theN)
-	    Or(cond, combIfs(next, cond1, rest, theN))
-	  else
-	    And(cond.invert, combIfs(next, cond1, rest, theN))
-    }
+  def combIfs(entry: Block, cond: Cond,
+	      ifBlocks: List[Block], thenBlock: Block): Cond = ifBlocks match {
+    case Nil => cond.invert
+    case IfBlock(next, init, cond1) :: rest =>
+      val succs = entry.successors
+      val sect = succs intersect next.successors
+      val discont = next.dominated match {
+	case IfBlock(sub, _, _) :: _ => next.ordinal + 1 != sub.ordinal
+	case _ => false
+      }
+      //LHA
+      if (sect exists (_.ordinal < thenBlock.ordinal))
+	combIfs(next,
+		if (succs contains thenBlock) Or(cond, cond1)
+		else And(cond.invert, if (discont) cond1.invert
+				      else cond1), rest, thenBlock)
+      //RHA
+      else
+	if (succs contains thenBlock)
+	  Or(cond, combIfs(next, cond1, rest, thenBlock))
+	else
+	  And(cond.invert, combIfs(next, cond1, rest, thenBlock))
   }
 
-  def structIf(head: Block, cond: Cond): Stmt = {
-    val hord = head.ordinal
-    val exit = head.dominanceFrontier match {
-      case Nil => head.dominated.last
-      case IfBlock(blk, _, _) :: Nil =>
-	if ((head.ordinal until blk.ordinal) map (i => blocks(i) match {
-	  case IfBlock(_, _, _) => true; case _ => false
-	} ) reduce (_ & _)) head.dominated.last else blk
-      case x :: Nil => x
-      case x =>
-	println(x mkString "; ")
-	throw new RuntimeException
-    }
-    val n = exit.ordinal - head.ordinal
-    println("n="+ n)
-    if ((head span exit).size % 2 == 0) {//TODO deal with else structure (elif)
-      val ifBlocks = (1 until n - 2).toList map (m => blocks(hord + m))
+  def structIf(entry: Block, exit: Block, cond: Cond): Stmt = {
+    val ord = entry.ordinal
+    val n = exit.ordinal - ord
+    println("n_ifs="+ n +" (entry span exit)="+ (entry span exit).size)
+    if ((entry span exit).size % 2 == 0) {//TODO deal with else structure (elif)
+      val ifBlocks = (1 until n - 2).toList map (m => blocks(ord + m))
       val thenBlock = exit.predecessors.init.last
       val elseBlock = exit.predecessors.last
-      If(combIfs(head, cond, ifBlocks, thenBlock),
+      If(combIfs(entry, cond, ifBlocks, thenBlock),
 	 Then(thenBlock.body), Else(elseBlock.body))
     } else {
-      val ifBlocks = (1 until n - 1).toList map (m => blocks(hord + m))
+      val ifBlocks = (1 until n - 1).toList map (m => blocks(ord + m))
       val thenBlock = exit.predecessors.last
-      If(combIfs(head, cond, ifBlocks, thenBlock),
+      If(combIfs(entry, cond, ifBlocks, thenBlock),
 	 Then(thenBlock.body))
     }
   }
 
-  def structure(head: Block): List[Stmt] = (head match {
+  def ifExit(entry: Block): Block = entry.dominanceFrontier match {
+    case Nil => entry.dominated.last
+    case IfBlock(exit, _, _) :: _ =>
+      if ((entry.ordinal until exit.ordinal) map (i => blocks(i) match {
+	case IfBlock(_, _, _) => true; case _ => false
+      } ) reduce (_ & _)) entry.dominated.last else exit
+    case xs =>
+      val x = xs.last
+      val y = entry.dominated.last
+      if (x.ordinal > y.ordinal) x else y
+  }
+
+  def structure(entry: Block): List[Stmt] = (entry match {
     case IfBlock(_, init, cond) =>
-      val stmts: List[Stmt] = init :+ structIf(head, cond)
-      head.dominanceFrontier match {
-	case Nil => (stmts, Some(head.dominated.last))
-	case IfBlock(blk, _, _) :: Nil =>
-	  if ((head.ordinal until blk.ordinal) map (i => blocks(i) match {
-	    case IfBlock(_, _, _) => true; case _ => false
-	  } ) reduce (_ & _)) (stmts, Some(head.dominated.last))
-	  else (stmts, Some(blk))
-	case next :: Nil => (stmts, Some(next))
-	case h :: x =>
-	  println("~~~"+h+" :: "+x)
-	  throw new RuntimeException
-	case _ => (stmts, None)
-      }
-    case _ => (head.body, None)
+      val exit = ifExit(entry)
+      println("entry="+ entry +" exit="+ exit)
+      val stmts: List[Stmt] = init :+ structIf(entry, exit, cond)
+      (stmts, Some(exit))
+    case _ => (entry.body, None)
   } ) match {
     case (stmts, None) => stmts
     case (stmts, Some(next)) => stmts ++ structure(next)
@@ -147,17 +136,7 @@ object MethodDecl {
     val argLocals = method.arguments map {
       case (v, desc) => entry.local(v, Symbol("arg_"+ v), desc)
     }
-    /*blocks foreach { block =>
-      println(block)
-      println("dominated by: "+ block.dominator)
-      println("dominates: "+ block.dominated)
-      println("dominance frontier: "+ block.dominanceFrontier)
-    }*/
-    new MethodDecl(method.modifiers,
-		   method.name,
-		   method.desc,
-		   argLocals,
-		   method.thrown,
-		   blocks)
+    new MethodDecl(method.modifiers, method.name, method.desc,
+		   argLocals, method.thrown, blocks)
   }
 }
