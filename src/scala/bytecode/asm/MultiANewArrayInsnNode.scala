@@ -15,13 +15,14 @@
  *along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package scala.bytecode.ast
+package scala.bytecode.asm
 
-import org.objectweb.asm.Type
+import org.objectweb.asm.tree.{MultiANewArrayInsnNode => M, AbstractInsnNode => N}
 
-trait Expr extends AST {
-  def desc: String
-  def show(cap: Boolean): String
+object MultiANewArrayInsnNode {
+  def apply(desc: String, dims: Int): M = new M(desc, dims)
 
-  def getType: Type = Type.getType(desc)
+  def unapply(n: N): Option[(String, Int)] = n match {
+    case m: M => Some(m.desc, m.dims); case _ => None
+  }
 }

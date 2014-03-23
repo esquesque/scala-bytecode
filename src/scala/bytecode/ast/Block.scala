@@ -148,7 +148,8 @@ class Block(val ordinal: Int,
 	insn match {
 	  case push(any) => Push(any)
 	  case load(v, _) => loadLocal(v)
-	  //case array.load(desc) =>
+	  case array.load(desc) => ArrayLoad(f(0), f(1))
+	  case array.alloc(
 	  case math(desc, operator, 1) => UnaryMath(desc, operator, f(0))
 	  case math(desc, operator, 2) => BinaryMath(desc, f(0), operator, f(1))
 	  case cast(from, to) => Cast(from, to, f(0))
@@ -158,10 +159,12 @@ class Block(val ordinal: Int,
 	  case initnew(inst, own, desc) => InitNew(inst, own, desc, args)
 	  case invokevirtual(own, name, desc) =>
 	    Method(own, name, desc, args.headOption, args.tail)
-	  //case invokespecial
+	  case invokespecial(own, name, desc) =>
+	    Method(own, name, desc, args.headOption, args.tail)
 	  case invokestatic(own, name, desc) =>
 	    Method(own, name, desc, None, args)
-	  //case invokeinterface
+	  case invokeinterface(own, name, desc) =>
+	    Method(own, name, desc, args.headOption, args.tail)
 	  //case invokedynamic
 	  case anew(inst) => New(inst)
 	  case array.alloc(desc) => ArrayAlloc(desc, f(0))

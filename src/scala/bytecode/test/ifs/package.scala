@@ -36,12 +36,15 @@ package object ifs {
 //a(5)=2^2^2+2^2=20 0b10100 0x14
     if_and_and_and ::
     if_or_or_or ::
+//
     if_AND_Or_and ::
     if_and_Or_AND ::
     if_And_or_And ::
     if_and_Or_and ::
-    if_OR_And_and :: Nil
-    //if_or_And_AND ::
+//
+    if_OR_And_and ::
+    if_or_And_AND ::
+    Nil
 
 /*a(n)
  *  1 1
@@ -77,6 +80,7 @@ package object ifs {
  *  31 1073741854
  *  32 2147483648
  *I really don't know how this scales, it's still being investigated.
- *2^2^2^2+2^2^2=65552=a(17) which would give n=[1,2,3,5,17] which are all prime.
+ *2^2^2^2+2^2^2=65552=a(17) which would give n=[1,2,3,5,17] which are all prime
+ *but n=[1,2,3,5,8] would be a subset of the Fibonacci.
  */
 }

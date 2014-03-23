@@ -17,10 +17,11 @@
 
 package scala.bytecode
 
-import org.objectweb.asm.{Label, Opcodes, tree, util}
+import org.objectweb.asm.{Label, Opcodes, Type, tree, util}
 
 package object asm {
   import Opcodes._
+  import Type._
   //alias so the extractor object names won't collide (for continuity w/ ASM)
   import tree.{ClassNode, FieldNode, MethodNode, InsnList,
 	       AbstractInsnNode,
@@ -35,12 +36,24 @@ package object asm {
 	       IincInsnNode => iincInsnNode,
 	       TableSwitchInsnNode,//todo
 	       LookupSwitchInsnNode,//todo
-	       MultiANewArrayInsnNode}//todo
+	       MultiANewArrayInsnNode => multianewarrayInsnNode}
   import util.Printer.{OPCODES => MNEMS}
 
   type Insn = AbstractInsnNode
 
-  object nop extends InsnX(NOP)
+  val typeStrings: List[String] =
+    List("void", "boolean", "char", "byte", "short",
+	 "int", "float", "long", "double")
+
+  def javaTypeString(t: Type): String =
+    if (t.getSort < 9) typeStrings(t.getSort)
+    else t.getSort match {
+      case ARRAY =>
+	javaTypeString(t.getElementType) + ("[]"*t.getDimensions)
+      case OBJECT => t.getClassName
+      case METHOD => javaTypeString(t.getReturnType)
+      case _ => t.toString
+    }
 
   def insnList(insns: Insn*): RichInsnList = {
     val insnList = new InsnList()
@@ -51,17 +64,6 @@ package object asm {
   val EMPTY_MAP: java.util.Map[Any, Any] = new java.util.HashMap[Any, Any]
   def insnClone(insn: Insn): Insn = insn.clone(EMPTY_MAP)
 
-  /* @return whether insn has side effects.
-   */
-  def insnHasSideEffects(insn: Insn): Boolean = insn match {
-    case store(_, _) => true
-    case IincInsnNode(_, _) => true
-    case putstatic(_, _, _) => true
-    case putfield(_, _, _) => true
-    case MethodInsnNode(_, _, _, _) => true
-    case _ => false
-  }
-
   /* @return mnemonic of insn.
    */
   def insnName(insn: Insn): String = insn match {
@@ -69,23 +71,6 @@ package object asm {
     case asm.JumpInsnNode(opcode, lbl) =>
       MNEMS(opcode).toLowerCase +"->"+ insnName(lbl)
     case _ => MNEMS(insn.getOpcode).toLowerCase
-  }
-
-  /* @return whether insn pushes the stack.
-   */
-  def insnPushes(insn: Insn): Boolean = insn match {
-    case push(_) => true
-    case load(_, _) => true
-    //case array.load(_) => true
-    //case array.alloc(_) => true
-    case math(_, _, _) => true
-    case cast(_, _) => true
-    case getstatic(_, _, _) => true
-    case getfield(_, _, _) => true
-    case anew(_) => true
-    case initnew(_, _, desc) => ! (desc endsWith "V")
-    case MethodInsnNode(_, _, _, desc) => ! (desc endsWith "V")
-    case _ => false
   }
 
   /* @return an informative string representation of insn.
@@ -107,6 +92,7 @@ package object asm {
     case array.cnew() => "newarray [C"
     case array.snew() => "newarray [S"
     case array.znew() => "newarray [Z"
+    case array.multianew(desc, dims) => "multianewarray "+ desc +" "+ dims
     case IntInsnNode(_, operand) => insnName(insn) +" "+ operand
     case VarInsnNode(_, varidx) => insnName(insn) +" #"+ varidx
     case IincInsnNode(varidx, incrmt) =>
@@ -123,6 +109,34 @@ package object asm {
     case JumpInsnNode(_, target) => insnName(insn)
     case LabelNode(label) => insnName(insn)
     case _ => insn.toString +"~"+ insnName(insn)
+  }
+
+  /* @return whether insn has side effects.
+   */
+  def insnHasSideEffects(insn: Insn): Boolean = insn match {
+    case store(_, _) => true
+    case IincInsnNode(_, _) => true
+    case putstatic(_, _, _) => true
+    case putfield(_, _, _) => true
+    case MethodInsnNode(_, _, _, _) => true
+    case _ => false
+  }
+
+  /* @return whether insn pushes the stack.
+   */
+  def insnPushes(insn: Insn): Boolean = insn match {
+    case push(_) => true
+    case load(_, _) => true
+    case array.load(_) => true
+    case array.alloc(_) => true
+    case math(_, _, _) => true
+    case cast(_, _) => true
+    case getstatic(_, _, _) => true
+    case getfield(_, _, _) => true
+    case anew(_) => true
+    case initnew(_, _, desc) => ! (desc endsWith "V")
+    case MethodInsnNode(_, _, _, desc) => ! (desc endsWith "V")
+    case _ => false
   }
 
   sealed trait X {
@@ -147,6 +161,8 @@ package object asm {
       case IntInsnNode(NEWARRAY, x) => x == t; case _ => false
     }
   }
+
+  object nop extends InsnX(NOP)
 
   class VarInsnX(op: Int) extends X {
     def apply(v: Int): varInsnNode = VarInsnNode(op, v)
@@ -214,6 +230,19 @@ package object asm {
 
     def unapply(insn: Insn): Option[labelNode] = insn match {
       case JumpInsnNode(op0, lbl) if op0 == op => Some(lbl)
+      case _ => None
+    }
+  }
+
+  //class TableSwitchX
+  //class LookupSwitchX
+
+  class MultiANewArrayX extends X {
+    def apply(desc: String, dims: Int): multianewarrayInsnNode =
+      MultiANewArrayInsnNode(desc, dims)
+
+    def unapply(insn: Insn): Option[(String, Int)] = insn match {
+      case MultiANewArrayInsnNode(desc, dims) => Some(desc, dims)
       case _ => None
     }
   }
@@ -420,7 +449,7 @@ package object asm {
 	case "[F" => array.fnew(); case "[D" => array.dnew()
         case "[B" => array.bnew(); case "[C" => array.cnew()
 	case "[S" => array.snew(); case "[Z" => array.znew()
-	case desc =>
+	//case _ if (desc lastIndexOf '[') > 0 =>
 	  array.anew(desc)
       }
 
@@ -430,6 +459,7 @@ package object asm {
 	case array.anew(desc) => Some(desc); case array.bnew() => Some("[B")
 	case array.cnew()     => Some("[C"); case array.snew() => Some("[S")
 	case array.znew()     => Some("[Z")
+	case array.multianew(desc, dims) => Some(desc)//hmmmm
 	case _ =>
 	  None
       }
@@ -447,7 +477,7 @@ package object asm {
 
     object length extends InsnX(ARRAYLENGTH)
 
-    object multianew//...............
+    object multianew extends MultiANewArrayX
   }
 
   // var store series 0x36-0x4e

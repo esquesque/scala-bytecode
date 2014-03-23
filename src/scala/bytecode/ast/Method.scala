@@ -24,6 +24,6 @@ case class Method(owner: String,
 		  args: List[Expr]) extends Expr {
   val desc = invokeDesc.substring(invokeDesc.indexOf(')') + 1)
   def show(cap: Boolean) =
-    (obj map (_ show true) getOrElse owner) +"/"+ name +
+    (obj map (_ show true) getOrElse owner) +"."+ name +
     (args map (_ show false) mkString ("(", ", ", ")"))
 }

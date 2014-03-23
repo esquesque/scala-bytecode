@@ -52,8 +52,6 @@ extends MemberInfo[MethodNode, ast.MethodDecl] {
     modifiers.map(sym => sym.name).mkString("", " ", " ") +
     owner.name +"/"+ name + desc
 
-  //change rest to defs???
-
   def arguments: List[(Int, String)] = {
     val argTypes = Type.getArgumentTypes(desc).toList
     argTypes.map(_.getSize).scanLeft(if (is('static)) 0 else 1)(_ + _).init.zip(

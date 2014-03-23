@@ -17,7 +17,9 @@
 
 package scala.bytecode.ast
 
+import org.objectweb.asm.Type
 import scala.bytecode.MethodInfo
+import scala.bytecode.asm._
 
 class MethodDecl(val modifiers: List[Symbol],
 		 val name: String,
@@ -25,7 +27,7 @@ class MethodDecl(val modifiers: List[Symbol],
 		 val argLocals: List[Local],
 		 val thrown: List[String],
 		 val blocks: List[Block]) extends Exec {
-  val returnDesc: String = desc substring ((desc indexOf ')') + 1)
+  val returnType: Type = Type.getReturnType(desc)
   val body: List[Stmt] = structure(blocks.head)
 
   def combIfs(entry: Block, cond: Cond,
@@ -100,7 +102,7 @@ class MethodDecl(val modifiers: List[Symbol],
       ps append (modifiers map (_.name) mkString " ")
       ps append " "
     }
-    ps append returnDesc
+    ps append javaTypeString(returnType)
     ps append ' '
     ps append name
     ps append '('

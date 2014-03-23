@@ -22,5 +22,5 @@ case class Field(owner: String,
 		 desc: String,
 		 obj: Option[Expr]) extends Expr {
   def show(cap: Boolean) =
-    (obj map (_ show true ) getOrElse owner) +"/"+ name
+    (obj map (_ show true ) getOrElse owner) +"."+ name
 }

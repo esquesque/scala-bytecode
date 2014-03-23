@@ -17,11 +17,11 @@
 
 package scala.bytecode.ast
 
-import org.objectweb.asm.Type
+case class ArrayLoad(ref: Expr, idx: Expr) extends Expr {
+  val desc = {
+    val refType = ref.getType
+    "["*(refType.getDimensions - 1) + refType.getElementType.getDescriptor
+  }
 
-trait Expr extends AST {
-  def desc: String
-  def show(cap: Boolean): String
-
-  def getType: Type = Type.getType(desc)
+  def show(cap: Boolean) = (ref show true) +"["+ (idx show false) +"]"
 }
