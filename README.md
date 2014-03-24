@@ -24,15 +24,12 @@ scala-bytecode
   *CollapseStackManipulations
 
     transforms dup stacks out into local store/loads
-
   *CollapseTernaryExprs
 
     transforms ternary expression stacks out onto local store/loads
-
   *AnchorFloatingStmts
 
     tares statements that are stranded in a non-0 stack
-
 * scala.bytecode.asm
 
     A set of convenience methods and extractor-object wrappers for ASM's
