@@ -7,10 +7,12 @@ scala-bytecode
 
 # Bytecode in a Can
 
-Notice:
+####Notice:
+
   This work is incomplete. Please exercise caution.
 
 * scala.bytecode
+
     A base library for loading and manipulating bytecode data structures with
   ASM. The master object is Cxt which is much like a classloader, keeping track
   of relevant classes and their relationships. ClassInfo, MethodInfo, and
@@ -20,13 +22,19 @@ Notice:
     Includes bytecode transforms essential for well-behaved IR:
 
   *CollapseStackManipulations
+
     transforms dup stacks out into local store/loads
+
   *CollapseTernaryExprs
+
     transforms ternary expression stacks out onto local store/loads
+
   *AnchorFloatingStmts
+
     tares statements that are stranded in a non-0 stack
 
 * scala.bytecode.asm
+
     A set of convenience methods and extractor-object wrappers for ASM's
   instruction library. Allows easy matching and declaration of bytecode.
 
@@ -47,8 +55,10 @@ Notice:
 ```
 
 * scala.bytecode.ast
+
     A cogent, concise, and pattern-matchable abstract syntax tree IR.
   for bytecodes. Still under development.
 
 * scala.bytecode.test
+
     Testing framework to verify the datums.
