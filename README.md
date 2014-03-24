@@ -1,11 +1,11 @@
 scala-bytecode
 ==============
 
-Facile bytecode analysis, disassembling, and manipulation in Scala.
+## Facile bytecode analysis, disassembling, and manipulation in Scala.
 
-Built on top of ObjectWeb ASM 4.0.
+### Built on top of ObjectWeb ASM 4.0.
 
-Bytecode in a Can
+# Bytecode in a Can
 
 Notice:
   This work is incomplete. Please exercise caution.
@@ -30,7 +30,7 @@ Notice:
   Example:
     import scala.bytecode.asm._
     //System.out.println((2*2)*2+(-1));
-    val instructions = insnList(
+```    val instructions = insnList(
       getfield("java/lang/System", "out", "Ljava/io/PrintStream;"),
       ipush(2), dup(), imul(),
       ipush(2), imul(),
@@ -39,6 +39,7 @@ Notice:
     (instructions map insnString).zipWithIndex foreach {
       case (str, idx) => println(idx +": "+ str)
     }
+```
 
 * scala.bytecode.ast
     A cogent, concise, and pattern-matchable abstract syntax tree IR.
