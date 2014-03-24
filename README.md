@@ -21,15 +21,15 @@ scala-bytecode
 
     Includes bytecode transforms essential for well-behaved IR:
 
-  *CollapseStackManipulations
-
+  -CollapseStackManipulations
     transforms dup stacks out into local store/loads
-  *CollapseTernaryExprs
 
+  -CollapseTernaryExprs
     transforms ternary expression stacks out onto local store/loads
-  *AnchorFloatingStmts
 
+  -AnchorFloatingStmts
     tares statements that are stranded in a non-0 stack
+
 * scala.bytecode.asm
 
     A set of convenience methods and extractor-object wrappers for ASM's
