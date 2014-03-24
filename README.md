@@ -19,12 +19,12 @@ Notice:
 
     Includes bytecode transforms essential for well-behaved IR:
 
-  -CollapseStackManipulations -- transforms dup stacks out into local store/
-    				 loads
-  -CollapseTernaryExprs       -- transforms ternary expression stacks out onto
-				 local store/loads
-  -AnchorFloatingStmts        -- tares statements that are stranded in a non-0
-  			         stack
+  *CollapseStackManipulations
+    transforms dup stacks out into local store/loads
+  *CollapseTernaryExprs
+    transforms ternary expression stacks out onto local store/loads
+  *AnchorFloatingStmts
+    tares statements that are stranded in a non-0 stack
 
 * scala.bytecode.asm
     A set of convenience methods and extractor-object wrappers for ASM's
@@ -35,23 +35,14 @@ Notice:
     import scala.bytecode.asm._
 
     //System.out.println((2*2)*2+(-1));
-
     val instructions = insnList(
-
       getfield("java/lang/System", "out", "Ljava/io/PrintStream;"),
-
       ipush(2), dup(), imul(),
-
       ipush(2), imul(),
-
       ipush(1), isub(),
-
       invokevirtual("java/io/PrintStream", "println", "(I)V"))
-
     (instructions map insnString).zipWithIndex foreach {
-
       case (str, idx) => println(idx +": "+ str)
-
     }
 ```
 
