@@ -95,6 +95,7 @@ extends MemberInfo[MethodNode, ast.MethodDecl] {
     addTryCatch(tc._1, tc._2, tc._3)
   }
 
+  @unchecked
   def addTryCatch(tryBound: (Int, Int), catchIdx: Int, excn: Option[String]) {
     ((tryBound._1 :: tryBound._2 :: catchIdx :: Nil) map instructions) match {
       case (s: LabelNode) :: (e: LabelNode) :: (h: LabelNode) :: _ =>

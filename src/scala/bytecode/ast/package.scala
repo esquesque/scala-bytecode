@@ -49,12 +49,13 @@ package object ast {
     }
   }
 
-  object DomBlock {
-    def unapply(block: Block): Option[(List[Block], List[Block])] = {
-      val subs = block.dominated
-      val df = block.dominanceFrontier
-      if (subs.nonEmpty || df.nonEmpty) Some((subs, df))
-      else None
-    }
+  type TryCatch = ((Int, Int), Int, Option[String])
+
+  object TryBlock {
+    def unapply(block: Block): Option[(Block, List[TryCatch])] =
+      block.tryEntry match {
+	case Nil => None
+	case tcs => Some(block, tcs)
+      }
   }
 }

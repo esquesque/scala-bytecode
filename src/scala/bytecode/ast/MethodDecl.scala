@@ -84,6 +84,8 @@ class MethodDecl(val modifiers: List[Symbol],
       if (x.ordinal > y.ordinal) x else y
   }
 
+  def structTryCatch(){}
+
   def structure(entry: Block): List[Stmt] = (entry match {
     case IfBlock(_, init, cond) =>
       val exit = ifExit(entry)
