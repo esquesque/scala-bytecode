@@ -207,7 +207,7 @@ object MethodInfo {
       apply(method, analyzer(method).analyze(method.owner.name, method.node))
 
     def stack(frame: Frame): List[(Int, Value)] = {
-      var depth = 0
+      /*var depth = 0
       val size = frame.getStackSize
       val values = new Array[(Int, Value)](size)
       while (depth < size) {
@@ -215,7 +215,13 @@ object MethodInfo {
 	values(depth) = (depth + value.getSize, value)
 	depth += value.getSize
       }
-      values.toList filter (_ != null)
+      values.toList filter (_ != null)*/
+      var depth = 0
+      (0 until frame.getStackSize).toList map { i =>
+	val value = frame.getStack(i)
+	depth += value.getSize
+        (depth, value)
+      }
     }
 
     def stackDescs(frame: Frame): List[Option[String]] = stack(frame).map {

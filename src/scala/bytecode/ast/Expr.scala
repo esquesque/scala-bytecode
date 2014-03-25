@@ -24,4 +24,7 @@ trait Expr extends AST {
   def show(cap: Boolean): String
 
   def getType: Type = Type.getType(desc)
+
+  val typeStringFunc: (Type) => String = scala.bytecode.asm.javaTypeString _
+  def typeString: String = typeStringFunc(getType)
 }

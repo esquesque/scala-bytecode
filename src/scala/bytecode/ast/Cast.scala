@@ -17,9 +17,9 @@
 
 package scala.bytecode.ast
 
-case class Cast(from: Option[String], to: String, expr: Expr) extends Expr {
-  val desc = to
-  def show(cap: Boolean) = ("("+ to +") "+ (expr show true)) match {
+case class Cast(from: Option[String], desc: String, expr: Expr) extends Expr {
+  def show(cap: Boolean) = ("("+ typeString +") "+
+			    (expr show true)) match {
     case str if cap => "("+ str +")"; case str => str
   }
 }

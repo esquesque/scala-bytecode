@@ -20,6 +20,14 @@ package scala.bytecode
 import asm._
 import org.objectweb.asm.tree.analysis.Frame
 
+/* Intended to abstract direct stack manipulation with var store/loads.
+ * 
+ * I don't think pop/pop2 need to be implemented but they can be annoying in
+ * "creative" bytecode when they are misused along with dups. Note to self:
+ * keep an eye out for such behavior.
+ * 
+ * TODO: swap and dup2_x2
+ */
 object CollapseStackManipulations extends MethodInfo.AnalyzeBasicTransform {
   def apply(method: MethodInfo, frames: Array[Frame]): MethodInfo.Changes = {
     var curLocal = method.node.maxLocals
@@ -31,8 +39,6 @@ object CollapseStackManipulations extends MethodInfo.AnalyzeBasicTransform {
     val zBounds: List[(Int, Int)] = stackZeroBounds(frames)
     val insns = method.instructions
     val smBoundsByZ: List[List[(Int, Int)]] = zBounds map (insns.search(_, 2) {
-      //case pop() :: _ => 1
-      //case pop2() :: _ => 1
       case anew(_) :: dup() :: _ => 2
       case dup()  :: _ => 1; case dup_x1()  :: _ => 1; case dup_x2()  :: _ => 1
       case dup2() :: _ => 1; case dup2_x1() :: _ => 1; case dup2_x2() :: _ => 1
@@ -53,10 +59,9 @@ object CollapseStackManipulations extends MethodInfo.AnalyzeBasicTransform {
 	  } ).isDefined
 	  def insertIdx(stackMod: Int): Int = smBound._1 +
 	    smFrames.zipWithIndex.tail.reverse.find(
-	      _._1.getStackSize == headFrame.getStackSize + stackMod).get._2
+	      _._1.getStackSize == headFrame.getStackSize - stackMod).get._2
+	  val w0 = wide(0)
 	  insn match {
-	    //case pop() =>
-	    //case pop2() =>
 	    case dup() =>
 	      smBound -> List(store(loc, desc),
 			      load(loc, desc),
@@ -67,42 +72,82 @@ object CollapseStackManipulations extends MethodInfo.AnalyzeBasicTransform {
 			      load(loc, desc)) ::
 	      (idx, idx) -> List(load(loc, desc)) :: Nil
 	    case dup_x2() =>
-	      val idx = insertIdx(-1)
+	      val idx = insertIdx(1)
 	      smBound -> List(store(loc, desc),
 			      load(loc, desc)) ::
 	      (idx, idx) -> List(load(loc, desc)) :: Nil
-	    case dup2() if wide(0) =>
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	    case dup2() if w0 =>
 	      smBound -> List(store(loc, desc),
 			      load(loc, desc),
 			      load(loc, desc)) :: Nil
 	    case dup2() =>
-	      val xloc = nextLocal(desc)
+	      val xdesc = descs.init.last
+	      val xloc = nextLocal(xdesc)
 	      smBound -> List(store(loc, desc),
-			      store(xloc, desc),
-			      load(xloc, desc),
+			      store(xloc, xdesc),
+			      load(xloc, xdesc),
 			      load(loc, desc),
-			      load(xloc, desc),
+			      load(xloc, xdesc),
 			      load(loc, desc)) :: Nil
-	    case dup2_x1() if wide(0) =>
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	    case dup2_x1() if w0 =>
 	      val idx = insertIdx(0)
 	      smBound -> List(store(loc, desc),
 			      load(loc, desc)) ::
 	      (idx, idx) -> List(load(loc, desc)) :: Nil
 	    case dup2_x1() =>
 	      val idx = insertIdx(0)
-	      val xloc = nextLocal(desc)
+	      val xdesc = descs.init.last
+	      val xloc = nextLocal(xdesc)
 	      smBound -> List(store(loc, desc),
-			      store(xloc, desc),
-			      load(xloc, desc),
+			      store(xloc, xdesc),
+			      load(xloc, xdesc),
 			      load(loc, desc)) ::
-	      (idx, idx) -> List(load(xloc, desc),
+	      (idx, idx) -> List(load(xloc, xdesc),
 				 load(loc, desc)) :: Nil
-	    //fuck case dup2_x2() =>
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	    case dup2_x2() if w0 && wide(1) =>
+	      val idx = insertIdx(0)
+	      smBound -> List(store(loc, desc),
+			      load(loc, desc)) ::
+	      (idx, idx) -> List(load(loc, desc)) :: Nil
+	    case dup2_x2() if w0 && ! wide(1) =>
+	      val idx = insertIdx(0)
+	      smBound -> List(store(loc, desc),
+			      load(loc, desc)) ::
+	      (idx, idx) -> List(load(loc, desc)) :: Nil
+	    case dup2_x2() if !w0 && wide(2) =>
+	      val idx = insertIdx(0)
+	      val xdesc = descs.init.last
+	      val xloc = nextLocal(xdesc)
+	      smBound -> List(store(loc, desc),
+			      store(xloc, xdesc),
+			      load(xloc, xdesc),
+			      load(loc, desc)) ::
+	      (idx, idx) -> List(load(xloc, xdesc),
+				 load(loc, desc)) :: Nil
+	    case dup2_x2() if !w0 && ! wide(2) =>
+	      val idx = insertIdx(1)
+	      val xdesc = descs.init.last
+	      val xloc = nextLocal(xdesc)
+	      smBound -> List(store(loc, desc),
+			      store(xloc, xdesc),
+			      load(xloc, xdesc),
+			      load(loc, desc)) ::
+	      (idx, idx) -> List(load(xloc, xdesc),
+				 load(loc, desc)) :: Nil
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	    //case swap() =>
 	    case _ => throw new RuntimeException("unimpl")
 	  }
 	} else {
-	  //anew dup ... invokespecial -> ... initnew
+/* Abstract the common case of allocating an object, duping it, and using one
+ * copy to initialize the object, by using a pseudo-instruction "initnew" which
+ * initializes when it is called and returns the object being initialized.
+ * 
+ * anew Lobject; dup [...] invokespecial(args)V -> [...] initnew(args)Lobject;
+ */
 	  val instance = insn match { case anew(inst) => inst }
 	  val init = insns.search((smBound._2, zBound._2), 1) {
 	    case invokespecial(_, "<init>", _) :: _ => 1; case _ => 0
