@@ -26,7 +26,7 @@ class MethodDecl(val modifiers: List[Symbol],
 		 val desc: String,
 		 val argLocals: List[Local],
 		 val thrown: List[String],
-		 val tryCatches: List[(Int, Int, Int, Option[String])],
+		 val tryCatches: List[TryCatch],
 		 val blocks: List[Block]) extends Exec {
   val returnType: Type = Type.getReturnType(desc)
   val body: List[Stmt] = structureBody(blocks.head)
@@ -63,19 +63,35 @@ class MethodDecl(val modifiers: List[Symbol],
       val ifBlocks = (1 until n - 2).toList map (m => blocks(ord + m))
       val thenBlock = exit.predecessors.init.last
       val elseBlock = exit.predecessors.last
+      assert(elseBlock.ordinal + 1 == exit.ordinal)
       If(combIfs(entry, cond, ifBlocks, thenBlock),
 	 Then(thenBlock.body), Else(elseBlock.body))
     } else {
       val ifBlocks = (1 until n - 1).toList map (m => blocks(ord + m))
       val thenBlock = exit.predecessors.last
+      assert(thenBlock.ordinal + 1 == exit.ordinal)
       If(combIfs(entry, cond, ifBlocks, thenBlock),
 	 Then(struct(thenBlock, Some(exit))))
     }
   }
 
-  def structTryCatch(entry: Block, exit: Block,
-		     tcs: List[(Int, Int, Int, Option[String])]): Stmt = {
-    null
+  def structTryCatch(entry: Block, exit: Block, tcs: List[TryCatch]): Stmt = {
+    val endIdcs = tcs map (_._2)
+    val handlerIdcs = tcs map (_._3)
+    val excns = tcs map (_._4)
+    println(endIdcs.min)
+    val endBlock = (blocks find (_.bound._1 == endIdcs.min)).get
+    val stmts = entry match {
+      case IfBlock(_, init, cond) if tcs.nonEmpty =>
+        init :+ structIf(entry, endBlock, cond)
+      case _ => entry.body
+    }
+    val handlerBlocks = handlerIdcs map (idx =>
+      (blocks find (_.bound._1 == idx)).get)
+    val catches = (handlerBlocks zip excns) map {
+      case (block, excn) => Catch(struct(block, Some(exit)), excn)
+    }
+    Try(stmts ++ endBlock.body, catches: _*)
   }
 
   def scopeExit(entry: Block): Option[Block] = entry.dominanceFrontier match {
@@ -95,10 +111,10 @@ class MethodDecl(val modifiers: List[Symbol],
     println("struct entry="+ entry +" exit="+ exit)
     val enteringTryCatches = tryCatches filter (_._1 == entry.bound._1)
     entry match {
-      case IfBlock(_, init, cond) =>
-	init :+ structIf(entry, exit.get, cond)
       case _ if enteringTryCatches.nonEmpty =>
         structTryCatch(entry, exit.get, enteringTryCatches) :: Nil
+      case IfBlock(_, init, cond) =>
+	init :+ structIf(entry, exit.get, cond)
       case _ => entry.body
     }
   }

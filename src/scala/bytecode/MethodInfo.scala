@@ -126,17 +126,19 @@ extends MemberInfo[MethodNode, ast.MethodDecl] {
    */
   def cfg: ControlFlowGraph = new ControlFlowGraph(this) {
     val bounds: List[(Int, Int)] = {
-      val tryBounds_m1 = tryCatches.map (tc =>
-	(tc._1 - 1) :: (tc._2 - 1) :: Nil)
+      val tcs = tryCatches
       val ends = ((1 until instructions.length) filter { idx =>
-	val nps = if (idx < instructions.length - 1) preds(idx + 1) else null
-	val ss = succs(idx)
-        nps == null || nps.length != 1 || nps(0) != idx ||
-        ss == null || ss.length != 1 || ss(0) != idx + 1 ||
-	(tryBounds_m1 contains idx)
+	if (tcs exists (tc => tc._1 == idx + 1 || tc._2 == idx + 1)) true
+	else {
+	  val nps = if (idx < instructions.length - 1) preds(idx + 1) else null
+          val ss = succs(idx)
+          nps == null || nps.length != 1 || nps(0) != idx ||
+          ss == null || ss.length != 1 || ss(0) != idx + 1
+	}
       } ).toList map (_ + 1)
       (0 :: ends) zip ends
     }
+
     val size = bounds.length
     val edges: List[((Int, Int), (Int, Int))] =
       bounds.map(b => predecessors(b._1) map (_ -> b)).flatten

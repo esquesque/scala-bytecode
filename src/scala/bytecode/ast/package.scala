@@ -20,6 +20,8 @@ package scala.bytecode
 package object ast {
   trait AST
 
+  type TryCatch = (Int, Int, Int, Option[String])
+
   def descOf(value: Any): String = value match {
     case _: Int => "I"
     case _: Long => "J"

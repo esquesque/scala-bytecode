@@ -19,6 +19,7 @@ package scala.bytecode.ast
 
 case class Try(body: List[Stmt], catches: Catch*) extends Exec {
   def out(ps: java.io.PrintStream, indent: Int) {
+    ps append " "* indent
     ps append "try {\n"
     body foreach { stmt =>
       stmt.out(ps, indent + 2)
@@ -26,10 +27,7 @@ case class Try(body: List[Stmt], catches: Catch*) extends Exec {
     }
     ps append " "* indent
     ps append '}'
-    catches foreach { c =>
-      c.out(ps, indent)
-      ps append '\n'
-    }
+    catches foreach (_.out(ps, indent))
     ps.flush
   }
 }
