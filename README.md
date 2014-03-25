@@ -66,14 +66,14 @@ scala-bytecode
 ```
 
     Things that work:
-  -if short circuit structuring
+  >if short circuit structuring
 
     Things that kind of work:
-  -proper else-if structuring
+  >proper else-if structuring
 
     Things that don't work (yet):
-  -try-catch-finally support
-  -while and for loop support
+  >try-catch-finally support
+  >while and for loop support
 
 * scala.bytecode.test
 
