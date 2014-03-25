@@ -53,8 +53,27 @@ scala-bytecode
 
 * scala.bytecode.ast
 
-    A cogent, concise, and pattern-matchable abstract syntax tree IR.
-  for bytecodes. Still under development.
+    A cogent, concise, and pattern-matchable abstract syntax tree IR for
+  bytecodes. Still under development.
+
+  Example:
+```
+    import scala.bytecode._
+
+    val classInfo = Cxt.default resolve new java.io.File("x.class")
+    val classDecl = classInfo.tree
+    classDecl.out()//print Java-style IR
+```
+
+    Things that work:
+  -if short circuit structuring
+
+    Things that kind of work:
+  -proper else-if structuring
+
+    Things that don't work (yet):
+  -try-catch-finally support
+  -while and for loop support
 
 * scala.bytecode.test
 
