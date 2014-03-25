@@ -77,7 +77,7 @@ object CollapseStackManipulations extends MethodInfo.AnalyzeBasicTransform {
 		throw new RuntimeException("no eq stack frame w/i "+
 					   smBound._1 +"..."+ zBound._2)
 	    } )
-	    println("idx="+ idx)
+	    //println("idx="+ idx)
 	    idx
 	  }
 	  val w0 = wide(0)
