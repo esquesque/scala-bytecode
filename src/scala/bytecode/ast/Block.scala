@@ -31,9 +31,7 @@ class Block(val ordinal: Int,
 	    val frames: Array[Frame],
 	    val cfg: ControlFlowGraph,
 	    getblocks: () => List[Block]) extends Exec {
-  type TryCatch = ((Int, Int), Int, Option[String])
   private lazy val blocks = getblocks()
-  private lazy val tryCatches = info.tryCatches
 
   lazy val predecessors: List[Block] =
     (cfg predecessors bound) map (pred => blocks(cfg.bounds indexOf pred))
@@ -76,18 +74,6 @@ class Block(val ordinal: Int,
     case Some(block) =>
       ordinal + 1 == block.ordinal && bound._2 == block.bound._1 &&
       block.ordinallyPrecedes(subseq.tail: _*)
-  }
-
-  def tryEntry: List[TryCatch] = tryCatches filter {
-    case (tryBound, _, _) => tryBound._1 == bound._1; case _ => false
-  }
-
-  def tryExit: List[TryCatch] = tryCatches filter {
-    case (tryBound, _, _) => tryBound._2 == bound._2; case _ => false
-  }
-
-  def catchHandler: Option[TryCatch] = tryCatches find {
-    case (_, catchIdx, _) => catchIdx == bound._1; case _ => false
   }
 
   private val locals: Array[Local] = new Array(info.node.maxLocals)

@@ -26,9 +26,10 @@ class MethodDecl(val modifiers: List[Symbol],
 		 val desc: String,
 		 val argLocals: List[Local],
 		 val thrown: List[String],
+		 val tryCatches: List[(Int, Int, Int, Option[String])],
 		 val blocks: List[Block]) extends Exec {
   val returnType: Type = Type.getReturnType(desc)
-  val body: List[Stmt] = structure(blocks.head)
+  val body: List[Stmt] = structureBody(blocks.head)
 
   def combIfs(entry: Block, cond: Cond,
 	      ifBlocks: List[Block], thenBlock: Block): Cond = ifBlocks match {
@@ -68,34 +69,44 @@ class MethodDecl(val modifiers: List[Symbol],
       val ifBlocks = (1 until n - 1).toList map (m => blocks(ord + m))
       val thenBlock = exit.predecessors.last
       If(combIfs(entry, cond, ifBlocks, thenBlock),
-	 Then(thenBlock.body))
+	 Then(struct(thenBlock, Some(exit))))
     }
   }
 
-  def ifExit(entry: Block): Block = entry.dominanceFrontier match {
-    case Nil => entry.dominated.last
+  def structTryCatch(entry: Block, exit: Block,
+		     tcs: List[(Int, Int, Int, Option[String])]): Stmt = {
+    null
+  }
+
+  def scopeExit(entry: Block): Option[Block] = entry.dominanceFrontier match {
+    case Nil if entry.dominates => Some(entry.dominated.last)
+    case Nil => None
     case IfBlock(exit, _, _) :: _ =>
-      if ((entry.ordinal until exit.ordinal) map (i => blocks(i) match {
+      Some(if ((entry.ordinal until exit.ordinal) map (i => blocks(i) match {
 	case IfBlock(_, _, _) => true; case _ => false
-      } ) reduce (_ & _)) entry.dominated.last else exit
+      } ) reduce (_ & _)) entry.dominated.last else exit)
     case xs =>
       val x = xs.last
       val y = entry.dominated.last
-      if (x.ordinal > y.ordinal) x else y
+      Some(if (x.ordinal > y.ordinal) x else y)
   }
 
-  def structTryCatch(){}
+  def struct(entry: Block, exit: Option[Block]): List[Stmt] = {
+    println("struct entry="+ entry +" exit="+ exit)
+    val enteringTryCatches = tryCatches filter (_._1 == entry.bound._1)
+    entry match {
+      case IfBlock(_, init, cond) =>
+	init :+ structIf(entry, exit.get, cond)
+      case _ if enteringTryCatches.nonEmpty =>
+        structTryCatch(entry, exit.get, enteringTryCatches) :: Nil
+      case _ => entry.body
+    }
+  }
 
-  def structure(entry: Block): List[Stmt] = (entry match {
-    case IfBlock(_, init, cond) =>
-      val exit = ifExit(entry)
-      println("entry="+ entry +" exit="+ exit)
-      val stmts: List[Stmt] = init :+ structIf(entry, exit, cond)
-      (stmts, Some(exit))
-    case _ => (entry.body, None)
-  } ) match {
-    case (stmts, None) => stmts
-    case (stmts, Some(next)) => stmts ++ structure(next)
+  def structureBody(entry: Block): List[Stmt] = {
+    val exit = scopeExit(entry)
+    val stmts = struct(entry, exit)
+    if (exit.isDefined) stmts ++ structureBody(exit.get) else stmts
   }
 
   def out(ps: java.io.PrintStream, indent: Int) {
@@ -129,7 +140,6 @@ class MethodDecl(val modifiers: List[Symbol],
   }
 }
 
-import org.objectweb.asm.tree.analysis.Analyzer
 object MethodDecl {
   def apply(method: MethodInfo): MethodDecl = {
     val analyzer = method.cfgAnalyzer(MethodInfo.sourceInterpreter)
@@ -141,6 +151,6 @@ object MethodDecl {
       case (v, desc) => entry.local(v, Symbol("arg_"+ v), desc)
     }
     new MethodDecl(method.modifiers, method.name, method.desc,
-		   argLocals, method.thrown, blocks)
+		   argLocals, method.thrown, method.tryCatches, blocks)
   }
 }

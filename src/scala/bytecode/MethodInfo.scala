@@ -80,24 +80,24 @@ extends MemberInfo[MethodNode, ast.MethodDecl] {
   def abstractStack: List[MethodInfo.Record] =
     apply(CollapseStackManipulations, AnchorFloatingStmts)
 
-  /* @return a 3-ple to avoid the need for a wrapper for TryCatchBlockNode;
-   *  third element is an optional exception descriptor (None for finally).
+  /* @return a 4-ple to avoid the need for a wrapper for TryCatchBlockNode;
+   *  fourth element is an optional exception descriptor (None for finally).
    */
-  def tryCatches: List[((Int, Int), Int, Option[String])] = {
-    val idx: Insn => Int = instructions indexOf _
+  def tryCatches: List[(Int, Int, Int, Option[String])] =
     node.tryCatchBlocks.asInstanceOf[list[TCB]].toList map (tcb =>
-      ((idx(tcb.start), idx(tcb.end)),
-       idx(tcb.handler),
+      (instructions indexOf tcb.start,
+       instructions indexOf tcb.end,
+       instructions indexOf tcb.handler,
        if (tcb.`type` == null) None else Some(tcb.`type`)))
-  }
 
-  def addTryCatch(tc: ((Int, Int), Int, Option[String])) {
-    addTryCatch(tc._1, tc._2, tc._3)
+  def addTryCatch(tc: (Int, Int, Int, Option[String])) {
+    addTryCatch(tc._1, tc._2, tc._3, tc._4)
   }
 
   @unchecked
-  def addTryCatch(tryBound: (Int, Int), catchIdx: Int, excn: Option[String]) {
-    ((tryBound._1 :: tryBound._2 :: catchIdx :: Nil) map instructions) match {
+  def addTryCatch(tryEntry: Int, tryExit: Int, catchIdx: Int,
+		  excn: Option[String]) {
+    ((tryEntry :: tryExit :: catchIdx :: Nil) map instructions) match {
       case (s: LabelNode) :: (e: LabelNode) :: (h: LabelNode) :: _ =>
 	val tcb = new TCB(s, e, h, excn.orNull)
 	node.tryCatchBlocks.asInstanceOf[list[TCB]].add(tcb)
@@ -126,9 +126,8 @@ extends MemberInfo[MethodNode, ast.MethodDecl] {
    */
   def cfg: ControlFlowGraph = new ControlFlowGraph(this) {
     val bounds: List[(Int, Int)] = {
-      val tryBounds_m1 = tryCatches.map(_._1 match {
-	case (beg, end) => (beg - 1) :: (end - 1) :: Nil
-      } ).flatten
+      val tryBounds_m1 = tryCatches.map (tc =>
+	(tc._1 - 1) :: (tc._2 - 1) :: Nil)
       val ends = ((1 until instructions.length) filter { idx =>
 	val nps = if (idx < instructions.length - 1) preds(idx + 1) else null
 	val ss = succs(idx)

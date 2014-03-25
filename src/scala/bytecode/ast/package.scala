@@ -48,14 +48,4 @@ package object ast {
       }
     }
   }
-
-  type TryCatch = ((Int, Int), Int, Option[String])
-
-  object TryBlock {
-    def unapply(block: Block): Option[(Block, List[TryCatch])] =
-      block.tryEntry match {
-	case Nil => None
-	case tcs => Some(block, tcs)
-      }
-  }
 }

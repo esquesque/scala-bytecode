@@ -66,11 +66,13 @@ object CollapseStackManipulations extends MethodInfo.AnalyzeBasicTransform {
 	      smBound -> List(store(loc, desc),
 			      load(loc, desc),
 			      load(loc, desc)) :: Nil
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	    case dup_x1() =>
 	      val idx = insertIdx(0)
 	      smBound -> List(store(loc, desc),
 			      load(loc, desc)) ::
 	      (idx, idx) -> List(load(loc, desc)) :: Nil
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	    case dup_x2() =>
 	      val idx = insertIdx(1)
 	      smBound -> List(store(loc, desc),

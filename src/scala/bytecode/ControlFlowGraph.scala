@@ -63,8 +63,8 @@ abstract class ControlFlowGraph(val method: MethodInfo) {
     val pre1 = new Array[Node](bounds.length)
     val post1 = new Array[Node](bounds.length)
     def catchBounds(beg: Int): List[(Int, Int)] =
-      method.tryCatches filter(_._1._1 == beg) map (tc =>
-	bounds.find(b => b._1 == tc._2).get)
+      method.tryCatches filter(_._1 == beg) map (tc =>
+	bounds.find(b => b._1 == tc._3).get)
     def f(nodes: List[Node], m: Int, n: Int): Int = nodes match {
       case Nil => m
       case node :: nt => node.succs match {
@@ -141,8 +141,8 @@ abstract class ControlFlowGraph(val method: MethodInfo) {
 	val preds = predecessors(n.b)
 	var idom = preds find (p => proc(bs indexOf p)) getOrElse {
 	  if (preds.length == 0) {
-	    val tc = method.tryCatches.find(_._2 == n.b._1).get
-	    bs.find(_._1 == tc._1._1).get
+	    val tc = method.tryCatches.find(_._3 == n.b._1).get
+	    bs.find(_._1 == tc._1).get
 	  } else preds(0)
 	}
 	for (p <- preds if !(p equals idom) && doms(bs indexOf p) != null) {

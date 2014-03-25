@@ -14,7 +14,7 @@ trait Case[A] extends Function0[Boolean] {
   def desc: String
   def insns: RichInsnList
 
-  def tryCatches: List[((Int, Int), Int, Option[String])] = Nil
+  def tryCatches: List[(Int, Int, Int, Option[String])] = Nil
 
   lazy val method = {
     val m = ClassInfo.anonymous.newMethod('static)(
