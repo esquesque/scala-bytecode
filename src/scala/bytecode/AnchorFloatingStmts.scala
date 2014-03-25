@@ -36,33 +36,39 @@ object AnchorFloatingStmts extends MethodInfo.CFGTransform {
     val zBounds = stackZeroBounds(frames)
     val insns = method.instructions
     val hits = for ((zBeg, zEnd) <- zBounds) yield {
-      val stmts = for ((insn, idx) <- insns.slice(zBeg, zEnd - 1).zipWithIndex
-		       if ! insnPushes(insn))
-		  yield {
-		    var stmtIdx = zBeg + idx
-		    val nextFrame = frames(stmtIdx + 1)
-		    val stmtBeg = ((zBeg until stmtIdx).reverse find (idx =>
-		      frames(idx).getStackSize == nextFrame.getStackSize)).get
-		    insns(stmtIdx) match {
-		      case JumpInsnNode(_, lbl) =>
-			val ord = cfg.bounds.indexWhere(_._2 == stmtIdx + 1)
-			//println("df"+ cfg.bounds(ord) +"="+ (cfg.dominanceFrontiers(ord) map cfg.bounds))
-		        stmtIdx = cfg.bounds(cfg.dominanceFrontiers(ord).head)._1
-		      case _ =>
-		    }
-		    (stmtBeg, stmtIdx)
-		  }
+      val stmts =
+	for ((insn, idx) <- insns.slice(zBeg, zEnd - 1).zipWithIndex
+	     if ! insnPushes(insn)) yield {
+	       var stmtIdx = zBeg + idx
+	       val nextFrame = frames(stmtIdx + 1)
+	       //println("*************************************************")
+	       //insns.slice(zBeg, stmtIdx + 1) map insnString foreach println
+	       val stmtBeg = ((zBeg until stmtIdx).reverse find (x =>
+		 frames(x).getStackSize == nextFrame.getStackSize)) match {
+		   case Some(idx) => idx
+		   case None => throw new RuntimeException
+		 }
+	       insns(stmtIdx) match {
+		 case JumpInsnNode(_, lbl) =>
+		   val ord = cfg.bounds.indexWhere(_._2 == stmtIdx + 1)
+		   //println("df"+ cfg.bounds(ord) +"="+ (cfg.dominanceFrontiers(ord) map cfg.bounds))
+		   stmtIdx = cfg.bounds(cfg.dominanceFrontiers(ord).head)._1
+		 case _ =>
+	       }
+	       (stmtBeg, stmtIdx)
+	     }
       (zBeg, stmts.toList, zEnd)
     }
+    hits filter (_._2.nonEmpty) foreach println
     val spec: MethodInfo.InsnSpec = (hits map {
       case (_, Nil, _) => Nil
       case (zBeg, stmts, zEnd) =>
 	(if (insns.haveSideEffects(zBeg, stmts.last._1)) {
 	  val preSubSpecs = stmts map {
-	    case (stmtBeg, stmtIdx) => stack(frames(stmtBeg)) map {
-	      case (depth, value) =>
+	    case (stmtBeg, stmtIdx) => stack(frames(stmtBeg)).zipWithIndex map {
+	      case ((_, value), stackIdx) =>
 		val storeIdx = (zBeg to stmtBeg).reverse.find(idx =>
-		  frames(idx).getStackSize == depth).get
+		  frames(idx).getStackSize == stackIdx + 1).get
 		val loadIdx = stmtIdx + 1
 		val desc = valueDesc(value)
 		(storeIdx, loadIdx, valueDesc(value))
@@ -85,17 +91,23 @@ object AnchorFloatingStmts extends MethodInfo.CFGTransform {
 	      val stmtFrame = frames(stmtIdx)
 	      val stmtEnds = ((stmtBeg to stmtIdx) filter (idx =>
 		frames(idx).getStackSize == stmtFrame.getStackSize)).toList
+	      println("zBeg="+ zBeg)
+	      println("stmtBeg="+ stmtBeg)
+	      println("###"+ stmtEnds)
 	      val stmtEnd = stmtEnds match {
 		case end :: Nil => end
-		case end0 :: end1 :: Nil => if ((end0 until end1) map (end =>
-		  insnPushes(insns(end))) reduce (_ & _)) end1 else end0
+		case end0 :: end1 :: Nil =>
+		  if ((end0 until end1) map (end =>
+		    insnPushes(insns(end))) reduce (_ & _)) end1 else end0
 		case _ => throw new RuntimeException
 	      }
+	      println("stmtEnd="+ stmtEnd)
+	      println("stmtIdx="+ stmtIdx)
 	      val stmt = (insns.slice(stmtBeg, stmtEnd).toList map insnClone) :+
 			  insnClone(insns(stmtIdx))
-	      (zBeg, zBeg)           -> stmt ::
+	      (stmtIdx, stmtIdx + 1) -> Nil  ::
 	      (stmtBeg, stmtEnd)     -> Nil  ::
-	      (stmtIdx, stmtIdx + 1) -> Nil  :: Nil
+	      (zBeg, zBeg)           -> stmt :: Nil
 	  }
 	  subSpec
 	} ).flatten

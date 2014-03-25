@@ -57,9 +57,29 @@ object CollapseStackManipulations extends MethodInfo.AnalyzeBasicTransform {
 	  def wide(x: Int): Boolean = (descs.reverse(x) filter {
 	    case "J" => true; case "D" => true; case _ => false
 	  } ).isDefined
-	  def insertIdx(stackMod: Int): Int = smBound._1 +
-	    smFrames.zipWithIndex.tail.reverse.find(
-	      _._1.getStackSize == headFrame.getStackSize - stackMod).get._2
+	  (insns.zipWithIndex.slice(smBound._1, zBound._2) zip smFrames) foreach {
+	    case ((insn, idx), frame) =>
+	      println(idx +": "+ insnString(insn) +" stack_size="+ frame.getStackSize)
+	  }
+	  def insertIdx(stackMod: Int): Int = {
+	    val idx = (((1 until smFrames.length - 1) find { idx =>
+	      val frame = smFrames(idx)
+	      val next = smFrames(idx + 1)
+	      frame.getStackSize - next.getStackSize ==
+	      frame.getStackSize - headFrame.getStackSize + stackMod
+//	      next.getStackSize == headFrame.getStackSize - stackMod
+	    } ) match {
+	      case Some(idx) =>
+	        if (smFrames(idx).getStackSize - smFrames(idx + 1).getStackSize > 1)
+		  smBound._1 + idx + 1
+		else smBound._1 + idx
+	      case None =>
+		throw new RuntimeException("no eq stack frame w/i "+
+					   smBound._1 +"..."+ zBound._2)
+	    } )
+	    println("idx="+ idx)
+	    idx
+	  }
 	  val w0 = wide(0)
 	  insn match {
 	    case dup() =>
@@ -68,13 +88,13 @@ object CollapseStackManipulations extends MethodInfo.AnalyzeBasicTransform {
 			      load(loc, desc)) :: Nil
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	    case dup_x1() =>
-	      val idx = insertIdx(0)
+	      val idx = insertIdx(1)
 	      smBound -> List(store(loc, desc),
 			      load(loc, desc)) ::
 	      (idx, idx) -> List(load(loc, desc)) :: Nil
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	    case dup_x2() =>
-	      val idx = insertIdx(1)
+	      val idx = insertIdx(if (wide(1)) 1 else 2)
 	      smBound -> List(store(loc, desc),
 			      load(loc, desc)) ::
 	      (idx, idx) -> List(load(loc, desc)) :: Nil
@@ -94,12 +114,12 @@ object CollapseStackManipulations extends MethodInfo.AnalyzeBasicTransform {
 			      load(loc, desc)) :: Nil
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	    case dup2_x1() if w0 =>
-	      val idx = insertIdx(0)
+	      val idx = insertIdx(1)
 	      smBound -> List(store(loc, desc),
 			      load(loc, desc)) ::
 	      (idx, idx) -> List(load(loc, desc)) :: Nil
 	    case dup2_x1() =>
-	      val idx = insertIdx(0)
+	      val idx = insertIdx(1)
 	      val xdesc = descs.init.last
 	      val xloc = nextLocal(xdesc)
 	      smBound -> List(store(loc, desc),
@@ -110,17 +130,17 @@ object CollapseStackManipulations extends MethodInfo.AnalyzeBasicTransform {
 				 load(loc, desc)) :: Nil
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	    case dup2_x2() if w0 && wide(1) =>
-	      val idx = insertIdx(0)
-	      smBound -> List(store(loc, desc),
-			      load(loc, desc)) ::
-	      (idx, idx) -> List(load(loc, desc)) :: Nil
-	    case dup2_x2() if w0 && ! wide(1) =>
 	      val idx = insertIdx(1)
 	      smBound -> List(store(loc, desc),
 			      load(loc, desc)) ::
 	      (idx, idx) -> List(load(loc, desc)) :: Nil
+	    case dup2_x2() if w0 && ! wide(1) =>
+	      val idx = insertIdx(2)
+	      smBound -> List(store(loc, desc),
+			      load(loc, desc)) ::
+	      (idx, idx) -> List(load(loc, desc)) :: Nil
 	    case dup2_x2() if !w0 && wide(2) =>
-	      val idx = insertIdx(0)
+	      val idx = insertIdx(1)
 	      val xdesc = descs.init.last
 	      val xloc = nextLocal(xdesc)
 	      smBound -> List(store(loc, desc),
@@ -130,7 +150,7 @@ object CollapseStackManipulations extends MethodInfo.AnalyzeBasicTransform {
 	      (idx, idx) -> List(load(xloc, xdesc),
 				 load(loc, desc)) :: Nil
 	    case dup2_x2() if !w0 && ! wide(2) =>
-	      val idx = insertIdx(1)
+	      val idx = insertIdx(2)
 	      val xdesc = descs.init.last
 	      val xloc = nextLocal(xdesc)
 	      smBound -> List(store(loc, desc),

@@ -53,6 +53,11 @@ class MethodDecl(val modifiers: List[Symbol],
 	  Or(cond, combIfs(next, cond1, rest, thenBlock))
 	else
 	  And(cond.invert, combIfs(next, cond1, rest, thenBlock))
+    case _ =>
+      println("combIfs catchall")
+      println("ifBlocks="+ifBlocks)
+      println("thenBlock="+thenBlock)
+      throw new RuntimeException
   }
 
   def structIf(entry: Block, exit: Block, cond: Cond): Stmt = {
@@ -65,7 +70,8 @@ class MethodDecl(val modifiers: List[Symbol],
       val elseBlock = exit.predecessors.last
       assert(elseBlock.ordinal + 1 == exit.ordinal)
       If(combIfs(entry, cond, ifBlocks, thenBlock),
-	 Then(thenBlock.body), Else(elseBlock.body))
+	 Then(struct(thenBlock, Some(elseBlock))),
+	 Else(struct(elseBlock, Some(exit))))
     } else {
       val ifBlocks = (1 until n - 1).toList map (m => blocks(ord + m))
       val thenBlock = exit.predecessors.last

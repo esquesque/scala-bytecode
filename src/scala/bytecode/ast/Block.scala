@@ -160,7 +160,11 @@ class Block(val ordinal: Int,
 	  case invokevirtual(own, name, desc) =>
 	    Method(own, name, desc, args.headOption, args.tail)
 	  case invokespecial(own, name, desc) =>
-	    Method(own, name, desc, args.headOption, args.tail)
+	    args.head match {
+	      case New(inst) if name equals "<init>" =>
+		InitNew(inst, own, desc, args.tail)
+	      case _ => Method(own, name, desc, args.headOption, args.tail)
+	    }
 	  case invokestatic(own, name, desc) =>
 	    Method(own, name, desc, None, args)
 	  case invokeinterface(own, name, desc) =>
@@ -226,11 +230,10 @@ class Block(val ordinal: Int,
       case invokevirtual(own, name, desc) =>
 	Void(Method(own, name, desc, args.headOption, args.tail))
       case invokespecial(own, name, desc) =>
-	Void(name match {
-	  case "<init>" => args.head match {
-	    case New(inst) => InitNew(inst, own, desc, args.tail)
-	    case _ => Method(own, name, desc, args.headOption, args.tail)
-	  }
+	Void(args.head match {
+	  case New(inst) if name equals "<init>" =>
+	    InitNew(inst, own, desc, args.tail)
+	  case _ => Method(own, name, desc, args.headOption, args.tail)
 	} )
       case invokestatic(own, name, desc) =>
 	Void(Method(own, name, desc, None, args))

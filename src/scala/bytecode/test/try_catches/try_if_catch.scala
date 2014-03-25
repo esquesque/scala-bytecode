@@ -10,23 +10,25 @@ object try_if_catch extends scala.bytecode.test.ASTCase {
   val desc = "(Z)V"
 
   override def tryCatches =
-    (0, 4, 6, Some("x")) :: Nil
+    (0, 5, 7, Some("x")) :: Nil
 
   val insns = {
     val lbl0 = label()
     val lbl1 = label()
+    val lbl2 = label()
     insnList(
       label(),
       iload(0),
-      ifeq(lbl0),
-      invokestatic("foo", "bar", "()V"),
       lbl0,
-      goto(lbl1),
+      invokestatic("foo", "bar", "()I"),
+      ifeq(lbl0),
+      label(),
+      goto(lbl2),
       label(),
       astore(1),
       aload(1),
       invokevirtual("foo", "baz", "()V"),
-      lbl1,
+      lbl2,
       vreturn())
   }
 

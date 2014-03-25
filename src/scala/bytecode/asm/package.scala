@@ -115,6 +115,7 @@ package object asm {
    */
   def insnHasSideEffects(insn: Insn): Boolean = insn match {
     case store(_, _) => true
+    case array.store(_) => true
     case IincInsnNode(_, _) => true
     case putstatic(_, _, _) => true
     case putfield(_, _, _) => true
@@ -129,12 +130,16 @@ package object asm {
     case load(_, _) => true
     case array.load(_) => true
     case array.alloc(_) => true
+    case array.length() => true
     case math(_, _, _) => true
     case cast(_, _) => true
+    case iinc(_, _) => true
+    case cmp(_) => true
     case getstatic(_, _, _) => true
     case getfield(_, _, _) => true
     case anew(_) => true
     case initnew(_, _, desc) => ! (desc endsWith "V")
+    case instanceof(_) => true
     case MethodInsnNode(_, _, _, desc) => ! (desc endsWith "V")
     case _ => false
   }
@@ -614,10 +619,13 @@ package object asm {
       case f2i() => Some(Some("F"), "I"); case f2l() => Some(Some("F"), "J")
       case f2d() => Some(Some("F"), "D"); case d2i() => Some(Some("D"), "I")
       case d2l() => Some(Some("D"), "J"); case d2f() => Some(Some("D"), "F")
+      case i2b() => Some(Some("I"), "B"); case i2c() => Some(Some("I"), "C")
+      case i2s() => Some(Some("I"), "S")
       case checkcast(desc) => Some(None, desc)
       case _ => None
     }
   }
+
 
   object i2l extends InsnX(I2L)
   object i2f extends InsnX(I2F)
@@ -634,6 +642,10 @@ package object asm {
   object d2i extends InsnX(D2I)
   object d2l extends InsnX(D2L)
   object d2f extends InsnX(D2F)
+
+  object i2b extends InsnX(I2B)
+  object i2c extends InsnX(I2C)
+  object i2s extends InsnX(I2S)
 
   object checkcast extends TypeInsnX(CHECKCAST)
 

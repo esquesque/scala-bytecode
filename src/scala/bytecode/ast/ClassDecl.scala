@@ -23,8 +23,10 @@ class ClassDecl(val modifiers: List[Symbol],
 		val name: String,
 		val superName: String,
 		val interfaces: List[String],
-		val body: List[Stmt]) extends Exec {
-  def out(ps: java.io.PrintStream, indent: Int) {
+		val getbody: () => List[Stmt]) extends Exec {
+  lazy val body: List[Stmt] = getbody()
+
+  def outHeader(ps: java.io.PrintStream, indent: Int) {
     val interface = modifiers contains 'interface
     ps append " "* indent
     if (modifiers.nonEmpty) {
@@ -40,6 +42,11 @@ class ClassDecl(val modifiers: List[Symbol],
 	ps append x.mkString(if (interface) ", " else " implements ", ", ", "")
       case _ =>
     }
+    ps.flush
+  }
+
+  def out(ps: java.io.PrintStream, indent: Int) {
+    outHeader(ps, indent)
     ps append " {\n"
     body foreach { _.out(ps, indent + 2) }
     ps append "}\n"
@@ -50,6 +57,6 @@ class ClassDecl(val modifiers: List[Symbol],
 object ClassDecl {
   def apply(info: ClassInfo): ClassDecl =
     new ClassDecl(info.modifiers, info.name, info.superName, info.interfaces,
-		  (info.fields map FieldDecl.apply) ++
+		  () => (info.fields map FieldDecl.apply) ++
 		  (info.methods map MethodDecl.apply))
 }
