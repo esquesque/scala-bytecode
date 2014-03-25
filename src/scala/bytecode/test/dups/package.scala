@@ -21,9 +21,9 @@ package object dups {
     sfx_2iadd_dup2_4isto         ::
     sfx_dup2_x1_iadd_ladd_lsto   ::
     sfx_dup2_x1_4iadd_isto       ::
-    //TODO dup2_x2
-    dup2_x2_2ladd_lsto           ::
-    dup2_x2_5iadd_isto           ::
-    dup2_x2_iadd_ladd_2iadd_isto ::
+    dup2_x2_2ladd_lsto           :://JJ
+    dup2_x2_iadd_ladd_2iadd_isto :://JII
+    dup2_x2_2iadd_ladd_lsto      :://IIJ
+    dup2_x2_5iadd_isto           :://IIII
     Nil
 }

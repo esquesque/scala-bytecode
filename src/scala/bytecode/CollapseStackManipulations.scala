@@ -26,7 +26,7 @@ import org.objectweb.asm.tree.analysis.Frame
  * "creative" bytecode when they are misused along with dups. Note to self:
  * keep an eye out for such behavior.
  * 
- * TODO: swap and dup2_x2
+ * TODO: swap
  */
 object CollapseStackManipulations extends MethodInfo.AnalyzeBasicTransform {
   def apply(method: MethodInfo, frames: Array[Frame]): MethodInfo.Changes = {
@@ -113,7 +113,7 @@ object CollapseStackManipulations extends MethodInfo.AnalyzeBasicTransform {
 			      load(loc, desc)) ::
 	      (idx, idx) -> List(load(loc, desc)) :: Nil
 	    case dup2_x2() if w0 && ! wide(1) =>
-	      val idx = insertIdx(0)
+	      val idx = insertIdx(1)
 	      smBound -> List(store(loc, desc),
 			      load(loc, desc)) ::
 	      (idx, idx) -> List(load(loc, desc)) :: Nil

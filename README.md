@@ -39,7 +39,7 @@ scala-bytecode
 ```
     import scala.bytecode.asm._
 
-    //System.out.println((2*2)*2+(-1));
+    //System.out.println((2*2)*2-1);
     val instructions = insnList(
       getfield("java/lang/System", "out", "Ljava/io/PrintStream;"),
       ipush(2), dup(), imul(),
