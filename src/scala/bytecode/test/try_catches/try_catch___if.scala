@@ -33,6 +33,7 @@ object try_catch___if extends scala.bytecode.test.ASTCase {
   }
 
   val test: Test = {
+    case Exec(Try(_, Catch(_, _)) :: _ :: If(_, Then(_)) :: _) => true
     case tree => false
   }
 }
