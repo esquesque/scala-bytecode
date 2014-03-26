@@ -34,19 +34,19 @@ package object asm {
 	       JumpInsnNode => jumpInsnNode,
 	       LabelNode => labelNode,
 	       IincInsnNode => iincInsnNode,
-	       TableSwitchInsnNode,//todo
-	       LookupSwitchInsnNode,//todo
+	       TableSwitchInsnNode => tableswitchInsnNode,
+	       LookupSwitchInsnNode => lookupswitchInsnNode,
 	       MultiANewArrayInsnNode => multianewarrayInsnNode}
   import util.Printer.{OPCODES => MNEMS}
 
   type Insn = AbstractInsnNode
 
-  val typeStrings: List[String] =
+  val javaTypeStrings: List[String] =
     List("void", "boolean", "char", "byte", "short",
 	 "int", "float", "long", "double")
 
   def javaTypeString(t: Type): String =
-    if (t.getSort < 9) typeStrings(t.getSort)
+    if (t.getSort < 9) javaTypeStrings(t.getSort)
     else t.getSort match {
       case ARRAY =>
 	javaTypeString(t.getElementType) + ("[]"*t.getDimensions)
@@ -108,6 +108,13 @@ package object asm {
       insnName(insn) +" "+ owner +"/"+ name + desc
     case JumpInsnNode(_, target) => insnName(insn)
     case LabelNode(label) => insnName(insn)
+    case tableswitch(min, max, default, labels) =>
+      "tableswitch "+ min +"-"+ max +" default="+ insnName(default) +" labels="+
+	(labels map insnName mkString ";")
+    case lookupswitch(default, keys, labels) =>
+      "lookupswitch default="+ insnName(default) +" keys="+
+	(keys mkString ",") +" labels="+
+	(labels map insnName mkString ";")
     case _ => insn.toString +"~"+ insnName(insn)
   }
 
@@ -239,8 +246,33 @@ package object asm {
     }
   }
 
-  //class TableSwitchX
-  //class LookupSwitchX
+  class TableSwitchX extends X {
+    def apply(min: Int, max: Int,
+	      default: labelNode,
+	      labels: List[labelNode]): tableswitchInsnNode =
+      TableSwitchInsnNode(min, max, default, labels)
+
+    def unapply(insn: Insn): Option[(Int, Int, labelNode, List[labelNode])] =
+      insn match {
+	case TableSwitchInsnNode(min, max, default, labels) =>
+	  Some(min, max, default, labels)
+	case _ => None
+      }
+  }
+
+  class LookupSwitchX extends X {
+    def apply(default: labelNode,
+	      keys: List[Int],
+	      labels: List[labelNode]): lookupswitchInsnNode =
+      LookupSwitchInsnNode(default, keys, labels)
+
+    def unapply(insn: Insn): Option[(labelNode, List[Int], List[labelNode])] =
+      insn match {
+	case LookupSwitchInsnNode(default, keys, labels) =>
+	  Some(default, keys, labels)
+	case _ => None
+      }
+  }
 
   class MultiANewArrayX extends X {
     def apply(desc: String, dims: Int): multianewarrayInsnNode =
@@ -714,8 +746,8 @@ package object asm {
 
   // switch series 0xaa & 0xab
 
-  object tableswitch
-  object lookupswitch
+  object tableswitch extends TableSwitchX
+  object lookupswitch extends LookupSwitchX
 
   // return series
 

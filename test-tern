@@ -1,0 +1,4 @@
+#!/bin/bash
+
+CP=asm-all-4.0.jar:bin
+scala -classpath $CP scala.bytecode.test.test_ternaries
