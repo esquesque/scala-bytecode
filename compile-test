@@ -2,19 +2,13 @@
 
 CP=asm-all-4.0.jar:bin
 SRC=$(cat<<EOF
-src/scala/bytecode/asm/*.scala
-src/scala/bytecode/*.scala
-src/scala/bytecode/ast/*.scala
 src/scala/bytecode/test/*.scala
 src/scala/bytecode/test/dups/*.scala
 src/scala/bytecode/test/ifs/*.scala
 src/scala/bytecode/test/ternaries/*.scala
 src/scala/bytecode/test/try_catches/*.scala
-src/scala/swing/*.scala
-src/scala/swing/event/*.scala
-src/scala/swing/tree/*.scala
-src/scala/bytecode/vis/*.scala
 EOF
 )
 
 scalac -classpath $CP -d bin -deprecation -feature -sourcepath src -unchecked $SRC
+
