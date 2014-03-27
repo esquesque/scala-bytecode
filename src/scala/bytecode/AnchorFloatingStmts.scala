@@ -37,8 +37,10 @@ object AnchorFloatingStmts extends MethodInfo.CFGTransform {
       case label() => true
       case _ => insnPushes(insn)
     }
-    val zBounds = stackZeroBounds(frames)
     val insns = method.instructions
+    val zBounds = stackZeroBounds(frames) match {
+      case Nil => (0, insns.length) :: Nil; case zb => zb
+    }
     val hits = for ((zBeg, zEnd) <- zBounds) yield {
       val stmts =
 	for ((insn, idx) <- insns.slice(zBeg, zEnd - 1).zipWithIndex
@@ -66,6 +68,15 @@ object AnchorFloatingStmts extends MethodInfo.CFGTransform {
       (zBeg, stmts.toList, zEnd)
     }
     hits filter (_._2.nonEmpty) foreach println
+    def func(x: List[List[(Int, Int, Option[String])]]): List[(Int, Int, Option[String])] =
+      x.reduceLeft((left, right) =>
+	((left.init zip right) map {
+	  case ((lsIdx, llIdx, lDesc),
+		(rsIdx, rlIdx, rDesc)) =>
+		  println("***l "+lsIdx+","+llIdx+","+lDesc)
+		  println("***r "+rsIdx+","+rlIdx+","+rDesc)
+		  (lsIdx, rlIdx, rDesc)
+	} ) :+ left.last)
     val spec: MethodInfo.InsnSpec = (hits map {
       case (_, Nil, _) => Nil
       case (zBeg, stmts, zEnd) =>
@@ -80,16 +91,19 @@ object AnchorFloatingStmts extends MethodInfo.CFGTransform {
 		(storeIdx, loadIdx, valueDesc(value))
 	    }
 	  }
-	  val subSpec = preSubSpecs.reduceLeft((left, right) =>
-	    ((left.init zip right) map {
-	      case ((lsIdx, llIdx, lDesc),
-		    (rsIdx, rlIdx, rDesc)) => (lsIdx, rlIdx, rDesc)
-	    } ) :+ left.last) map {
-	      case (storeIdx, loadIdx, desc) =>
-		var loc = nextLocal(desc)
-		(storeIdx, storeIdx) -> List(store(loc, desc)) ::
-		(loadIdx, loadIdx)   -> List(load(loc, desc))  :: Nil
-	    }
+	  println("***\n"+ preSubSpecs.mkString("\n"))
+	  val xyz: List[(Int, Int, Option[String])] = preSubSpecs match {
+	    case _ :: Nil => preSubSpecs.flatten
+	    case _ :: _ :: Nil => func(preSubSpecs)
+	    case _ => preSubSpecs.head ++ func(preSubSpecs.tail)//i think this is sufficient
+	    //is it?
+	  }
+	  val subSpec = xyz map {
+	    case (storeIdx, loadIdx, desc) =>
+	      var loc = nextLocal(desc)
+	      (storeIdx, storeIdx) -> List(store(loc, desc)) ::
+	      (loadIdx, loadIdx)   -> List(load(loc, desc))  :: Nil
+	  }
 	  subSpec
 	} else {
 	  val subSpec = stmts map {

@@ -36,8 +36,10 @@ object CollapseStackManipulations extends MethodInfo.AnalyzeBasicTransform {
 	curLocal += 2; curLocal - 2
       case _ => curLocal += 1; curLocal - 1
     }
-    val zBounds: List[(Int, Int)] = stackZeroBounds(frames)
     val insns = method.instructions
+    val zBounds: List[(Int, Int)] = stackZeroBounds(frames) match {
+      case Nil => (0, insns.length) :: Nil; case zb => zb
+    }
     val smBoundsByZ: List[List[(Int, Int)]] = zBounds map (insns.search(_, 2) {
       case anew(_) :: dup() :: _ => 2
       case dup()  :: _ => 1; case dup_x1()  :: _ => 1; case dup_x2()  :: _ => 1
@@ -45,6 +47,7 @@ object CollapseStackManipulations extends MethodInfo.AnalyzeBasicTransform {
       //case swap() :: _ => 1
       case _ => 0
     } )
+    println(zBounds)
     val spec: MethodInfo.InsnSpec = ((zBounds zip smBoundsByZ) map {
       case (zBound, smBounds) => (smBounds map { smBound =>
 	val insn = insns(smBound._1)
@@ -61,12 +64,12 @@ object CollapseStackManipulations extends MethodInfo.AnalyzeBasicTransform {
 	    case ((insn, idx), frame) =>
 	      println(idx +": "+ insnString(insn) +" stack_size="+ frame.getStackSize)
 	  }*/
-	  def insertIdx(stackMod: Int): Int = {
+	  def insertIdx(headStackOffset: Int): Int = {
 	    val idx = (((1 until smFrames.length - 1) find { idx =>
 	      val frame = smFrames(idx)
 	      val next = smFrames(idx + 1)
 	      frame.getStackSize - next.getStackSize ==
-	      frame.getStackSize - headFrame.getStackSize + stackMod
+	      frame.getStackSize - headFrame.getStackSize + headStackOffset
 //	      next.getStackSize == headFrame.getStackSize - stackMod
 	    } ) match {
 	      case Some(idx) =>

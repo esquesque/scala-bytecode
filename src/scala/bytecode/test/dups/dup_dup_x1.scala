@@ -20,6 +20,22 @@ object dup_dup_x1 extends scala.bytecode.test.InsnsCase {
     array.iload(),
     ireturn())
 
+/*
+    aload(0)
+    getfield(_, "bar", _)
+    ipush(1)
+    isub()
+    istore(1)
+    aload(0)
+    iload(1)
+    putfield(_, "bar", _)
+    aload(0)
+    getfield(_, "foo", _)
+    iload(1)
+    array.iload()
+    ireturn()
+*/
+
   val test: Test = {
     case _ => false
   }
