@@ -57,10 +57,10 @@ object CollapseStackManipulations extends MethodInfo.AnalyzeBasicTransform {
 	  def wide(x: Int): Boolean = (descs.reverse(x) filter {
 	    case "J" => true; case "D" => true; case _ => false
 	  } ).isDefined
-	  (insns.zipWithIndex.slice(smBound._1, zBound._2) zip smFrames) foreach {
+	  /*(insns.zipWithIndex.slice(smBound._1, zBound._2) zip smFrames) foreach {
 	    case ((insn, idx), frame) =>
 	      println(idx +": "+ insnString(insn) +" stack_size="+ frame.getStackSize)
-	  }
+	  }*/
 	  def insertIdx(stackMod: Int): Int = {
 	    val idx = (((1 until smFrames.length - 1) find { idx =>
 	      val frame = smFrames(idx)

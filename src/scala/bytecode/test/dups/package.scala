@@ -25,5 +25,6 @@ package object dups {
     dup2_x2_iadd_ladd_2iadd_isto :://JII
     dup2_x2_2iadd_ladd_lsto      :://IIJ
     dup2_x2_5iadd_isto           :://IIII
+    dup_dup_x1                   ::
     Nil
 }

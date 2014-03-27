@@ -215,8 +215,8 @@ class Block(val ordinal: Int,
       case goto(lbl) => mkgoto(lbl)
       //case jsr
       //case ret
-      //case tableswitch
-      //case lookupswitch
+      //case tableswitch(min, max, default, labels) =>
+      //case lookupswitch(default, keys, labels) =>
       case ireturn() => Return(Some(f(0)))
       case lreturn() => Return(Some(f(0)))
       case freturn() => Return(Some(f(0)))

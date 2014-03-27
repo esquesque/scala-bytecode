@@ -54,9 +54,9 @@ class MethodDecl(val modifiers: List[Symbol],
 	else
 	  And(cond.invert, combIfs(next, cond1, rest, thenBlock))
     case _ =>
-      println("combIfs catchall")
-      println("ifBlocks="+ifBlocks)
-      println("thenBlock="+thenBlock)
+      println(" ***combIfs catchall***")
+      println("  ifBlocks="+ifBlocks)
+      println("  thenBlock="+thenBlock)
       throw new RuntimeException
   }
 
@@ -88,12 +88,19 @@ class MethodDecl(val modifiers: List[Symbol],
 	   Else(struct(elseBlock, Some(exit))))
       }
     } else {
-      if (nReturned > 0) throw new RuntimeException
-      val ifBlocks = (1 until n - 1).toList map (m => blocks(ord + m))
-      val thenBlock = exit.predecessors.last
-      assert(thenBlock.ordinal + 1 == exit.ordinal)
-      If(combIfs(entry, cond, ifBlocks, thenBlock),
-	 Then(struct(thenBlock, Some(exit))))
+      if (nReturned == 0) {
+	val ifBlocks = (1 until n - 1).toList map (m => blocks(ord + m))
+	val thenBlock = exit.predecessors.last
+	assert(thenBlock.ordinal + 1 == exit.ordinal)
+	If(combIfs(entry, cond, ifBlocks, thenBlock),
+	   Then(struct(thenBlock, Some(exit))))
+      } else {
+	val ifBlocks = (1 until n - 2).toList map (m => blocks(ord + m))
+	val thenBlock = blocks(ord + n - 1)
+	assert(thenBlock.ordinal + 1 == exit.ordinal)
+	If(combIfs(entry, cond, ifBlocks, thenBlock),
+	   Then(struct(thenBlock, Some(exit))))
+      }
     }
   }
 

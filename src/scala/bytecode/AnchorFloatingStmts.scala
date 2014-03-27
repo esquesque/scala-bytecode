@@ -33,12 +33,16 @@ object AnchorFloatingStmts extends MethodInfo.CFGTransform {
       case _ =>
 	curLocal += 1; curLocal - 1
     }
+    def isExpr(insn: Insn): Boolean = insn match {
+      case label() => true
+      case _ => insnPushes(insn)
+    }
     val zBounds = stackZeroBounds(frames)
     val insns = method.instructions
     val hits = for ((zBeg, zEnd) <- zBounds) yield {
       val stmts =
 	for ((insn, idx) <- insns.slice(zBeg, zEnd - 1).zipWithIndex
-	     if ! insnPushes(insn)) yield {
+	     if ! isExpr(insn)) yield {
 	       var stmtIdx = zBeg + idx
 	       val nextFrame = frames(stmtIdx + 1)
 	       //println("*************************************************")
@@ -46,7 +50,9 @@ object AnchorFloatingStmts extends MethodInfo.CFGTransform {
 	       val stmtBeg = ((zBeg until stmtIdx).reverse find (x =>
 		 frames(x).getStackSize == nextFrame.getStackSize)) match {
 		   case Some(idx) => idx
-		   case None => throw new RuntimeException
+		   case None =>
+		     throw new RuntimeException("no eq stack frame w/i "+
+						zBeg +"..."+stmtIdx)
 		 }
 	       insns(stmtIdx) match {
 		 case JumpInsnNode(_, lbl) =>
