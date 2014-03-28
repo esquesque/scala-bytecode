@@ -100,7 +100,7 @@ class Cxt {
       else Nil)).flatten
 
   import scala.collection.JavaConversions._
-  def resolve(jf: java.util.jar.JarFile): List[Either[ClassInfo, InputStream]] =
+  def resolveJar(jf: java.util.jar.JarFile): List[Either[ClassInfo, InputStream]] =
     (for (entry <- jf.entries) yield {
       val name = entry.getName
       if (name endsWith ".class") Left(resolve(jf.getInputStream(entry)))

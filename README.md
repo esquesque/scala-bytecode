@@ -14,21 +14,32 @@ scala-bytecode
 * scala.bytecode
 
     A base library for loading and manipulating bytecode data structures with
-  ASM. The master object is Cxt which is much like a classloader, keeping track
-  of relevant classes and their relationships. ClassInfo, MethodInfo, and
-  FieldInfo are the main objects of analysis and translation into intermediate-
-  representation (IR) and beyond (?)
+  ASM. The master object is Cxt which is much like a ClassLoader, keeping track
+  of relevant classes and their relationships.
+
+    Cxt.resolve (ClassNode/name: String/Array[Byte]/InputStream/File): ClassInfo
+  are the main entrypoints to the library, additionally:
+
+    Cxt.resolveDir(File): List[ClassInfo]
+
+    Cxt.resolveJar(java.util.jar.JarFile): Either[ClassInfo, InputStream]
+
+    ClassInfo, MethodInfo, and FieldInfo are the main objects of analysis (ASM
+  wrappers) and translation into intermediate-representation (IR) and beyond (?)
 
     Includes bytecode transforms essential for well-behaved IR:
 
-  -CollapseStackManipulations
-    transforms dup stacks out into local store/loads
+  *CollapseStackManipulations
+    *transforms dup stacks out into local store/loads
 
-  -CollapseTernaryExprs
-    transforms ternary expression stacks out onto local store/loads
+  *CollapseTernaryExprs
+    *transforms ternary expression stacks out onto local store/loads
 
-  -AnchorFloatingStmts
-    tares statements that are stranded in a non-0 stack
+  *AnchorFloatingStmts
+    *tares statements that are stranded in a non-0 stack
+
+    ControlFlowGraph contains a few procedural methods, which I am not proud of.
+  I think it works.
 
 * scala.bytecode.asm
 
@@ -36,7 +47,7 @@ scala-bytecode
   instruction library. Allows easy matching and declaration of bytecode.
 
   Example:
-```
+```scala
     import scala.bytecode.asm._
 
     //System.out.println((2*2)*2-1);
@@ -57,7 +68,7 @@ scala-bytecode
   bytecodes. Still under development.
 
   Example:
-```
+```scala
     import scala.bytecode._
 
     val classInfo = Cxt.default resolve new java.io.File("x.class")
@@ -65,14 +76,14 @@ scala-bytecode
     classDecl.out()//print Java-style IR
 ```
 
-    Things that work:
-  >if short-circuit structuring
+  *Things that work:
+    *if short-circuit structuring
 
-    Things that kind of work:
-  >proper else-if structuring
+  *Things that kind of work:
+    *proper else-if structuring
 
-    Things that don't work (yet):
-  >try-catch-finally support
+  *Things that don't work (yet):
+    *try-catch-finally support
 
   >while and for loop support
 
