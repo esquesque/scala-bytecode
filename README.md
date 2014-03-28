@@ -17,12 +17,12 @@ scala-bytecode
   ASM. The master object is Cxt which is much like a ClassLoader, keeping track
   of relevant classes and their relationships.
 
-    Cxt.resolve (ClassNode/name: String/Array[Byte]/InputStream/File): ClassInfo
-  are the main entrypoints to the library, additionally:
+  These are the main entrypoints to the library:
+  `Cxt.resolve (ClassNode/name: String/Array[Byte]/InputStream/File): ClassInfo`
 
-    Cxt.resolveDir(File): List[ClassInfo]
+  `Cxt.resolveDir(File): List[ClassInfo]`
 
-    Cxt.resolveJar(java.util.jar.JarFile): Either[ClassInfo, InputStream]
+  `Cxt.resolveJar(java.util.jar.JarFile): Either[ClassInfo, InputStream]`
 
     ClassInfo, MethodInfo, and FieldInfo are the main objects of analysis (ASM
   wrappers) and translation into intermediate-representation (IR) and beyond (?)
