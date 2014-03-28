@@ -18,25 +18,29 @@ scala-bytecode
   of relevant classes and their relationships.
 
   These are the main entrypoints to the library:
-  `Cxt.resolve (ClassNode/name: String/Array[Byte]/InputStream/File): ClassInfo`
-
-  `Cxt.resolveDir(File): List[ClassInfo]`
-
-  `Cxt.resolveJar(java.util.jar.JarFile): Either[ClassInfo, InputStream]`
+```scala
+Cxt.resolve(node: ClassNode/
+            name: String/
+            bytes: Array[Byte]/
+            is: InputStream/
+            f: File): ClassInfo
+Cxt.resolveDir(dir: File): List[ClassInfo]
+Cxt.resolveJar(jf: java.util.jar.JarFile): List[Either[ClassInfo, InputStream]]
+```
 
     ClassInfo, MethodInfo, and FieldInfo are the main objects of analysis (ASM
   wrappers) and translation into intermediate-representation (IR) and beyond (?)
 
     Includes bytecode transforms essential for well-behaved IR:
 
-  *CollapseStackManipulations
-    *transforms dup stacks out into local store/loads
+ *CollapseStackManipulations
+  *transforms dup stacks out into local store/loads
 
-  *CollapseTernaryExprs
-    *transforms ternary expression stacks out onto local store/loads
+ *CollapseTernaryExprs
+  *transforms ternary expression stacks out onto local store/loads
 
-  *AnchorFloatingStmts
-    *tares statements that are stranded in a non-0 stack
+ *AnchorFloatingStmts
+  *tares statements that are stranded in a non-0 stack
 
     ControlFlowGraph contains a few procedural methods, which I am not proud of.
   I think it works.
