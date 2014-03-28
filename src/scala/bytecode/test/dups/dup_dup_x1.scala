@@ -20,7 +20,7 @@ object dup_dup_x1 extends scala.bytecode.test.InsnsCase {
     array.iload(),
     ireturn())
 
-/*
+/*  i wish this produced:
     aload(0)
     getfield(_, "bar", _)
     ipush(1)
@@ -34,9 +34,19 @@ object dup_dup_x1 extends scala.bytecode.test.InsnsCase {
     iload(1)
     array.iload()
     ireturn()
+
+    but it produces an excess of load/stores. an additional transform to reduce
+    them may be necessitated, or modify the sideEffect portion of
+    AnchorFloatingStmts
 */
 
   val test: Test = {
+    case aload(0) :: getfield(_, "foo", _) :: astore(3) ::
+	 aload(0) :: astore(1) :: aload(3) :: astore(4) ::
+	 aload(1) :: astore(5) :: aload(1) :: getfield(_, "bar", _) ::
+	 ipush(1) :: isub() :: istore(2) ::
+	 aload(5) :: iload(2) :: putfield(_, "bar", _) ::
+	 aload(4) :: iload(2) :: array.iload() :: ireturn() :: Nil => true
     case _ => false
   }
 }

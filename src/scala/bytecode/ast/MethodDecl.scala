@@ -62,10 +62,17 @@ class MethodDecl(val modifiers: List[Symbol],
 
   def structIf(entry: Block, exit: Block, cond: Cond): Stmt = {
     val ord = entry.ordinal
+
     val n = exit.ordinal - ord
     val nReturned = (entry.dominated.init filter (_.successors.isEmpty)).length
+    //this have been observed to be either 0 for a non-returning structure
+    //or 1 for a returning structure (if-then-return-else/exit)
     val m = (entry span exit).size + nReturned
+    //I don't know why, but m is an even number for else-structures. This is its
+    //only use.
+
     println("structIf n="+ n +" m="+ m +" nReturned="+ nReturned)
+
     if (m % 2 == 0) {//TODO deal with else structure (elif)
       if (nReturned == 0) {
 	val ifBlocks = (1 until n - 2).toList map (x => blocks(ord + x))
