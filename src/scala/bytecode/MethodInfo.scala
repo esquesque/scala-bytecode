@@ -65,11 +65,14 @@ extends MemberInfo[MethodNode, ast.MethodDecl] {
   val instructions: asm.RichInsnList = new asm.RichInsnList(node.instructions)
 
   def apply(changes: MethodInfo.Changes): MethodInfo.Record = {
+    val record = MethodInfo.Record(changes.maxStack map (node.maxStack -> _),
+				   changes.maxLocals map (node.maxLocals -> _),
+				   Nil)//gotta convert InsnSpec=>InsnSpecRecord
+    //before mutate
     if (changes.maxStack.isDefined)  { node.maxStack = changes.maxStack.get }
     if (changes.maxLocals.isDefined) { node.maxLocals = changes.maxLocals.get }
     if (changes.insnSpec.nonEmpty)   { instructions.mutate(changes.insnSpec) }
-    MethodInfo.Record(changes.maxStack, changes.maxLocals,
-		      Nil)//gotta convert InsnSpec=>InsnSpecRecord
+    record
   }
 
   def apply(transform: MethodInfo.Transform): MethodInfo.Record =
@@ -141,6 +144,7 @@ extends MemberInfo[MethodNode, ast.MethodDecl] {
     }
 
     val size = bounds.length
+
     val edges: List[((Int, Int), (Int, Int))] =
       bounds.map(b => predecessors(b._1) map (_ -> b)).flatten
 
@@ -190,7 +194,7 @@ object MethodInfo {
 		     insnSpec: InsnSpec)
 
   case class Record(maxStack: Option[(Int, Int)],
-		    maxStack: Option[(Int, Int)],
+		    maxLocals: Option[(Int, Int)],
 		    insnSpecRecord: InsnSpecRecord)
 
   object NoChanges {
