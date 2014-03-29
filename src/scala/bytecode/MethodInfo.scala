@@ -68,7 +68,8 @@ extends MemberInfo[MethodNode, ast.MethodDecl] {
     if (changes.maxStack.isDefined)  { node.maxStack = changes.maxStack.get }
     if (changes.maxLocals.isDefined) { node.maxLocals = changes.maxLocals.get }
     if (changes.insnSpec.nonEmpty)   { instructions.mutate(changes.insnSpec) }
-    MethodInfo.Record()
+    MethodInfo.Record(changes.maxStack, changes.maxLocals,
+		      Nil)//gotta convert InsnSpec=>InsnSpecRecord
   }
 
   def apply(transform: MethodInfo.Transform): MethodInfo.Record =
@@ -182,13 +183,23 @@ object MethodInfo {
   }
 
   type InsnSpec = List[((Int, Int), List[Insn])]
+  type InsnSpecRecord = List[(Int, List[Insn], List[Insn])]
 
   case class Changes(maxStack: Option[Int],
 		     maxLocals: Option[Int],
 		     insnSpec: InsnSpec)
 
-  //todo store Record for diff
-  case class Record() {
+  case class Record(maxStack: Option[(Int, Int)],
+		    maxStack: Option[(Int, Int)],
+		    insnSpecRecord: InsnSpecRecord)
+
+  object NoChanges {
+    def apply(): Changes = Changes(None, None, Nil)
+    def unapply(any: Any): Boolean = any match {
+      case Changes(None, None, Nil) => true
+      case Record(None, None, Nil) => true
+      case _ => false
+    }
   }
 
   trait Transform extends Function1[MethodInfo, Changes]
@@ -237,7 +248,7 @@ object MethodInfo {
     def stackZeroBounds(frames: Array[Frame]): List[(Int, Int)] = {
       val zeros = for (i <- 0 until frames.length
 		       if frames(i).getStackSize == 0) yield i
-      (zeros zip zeros.tail).toList
+      (zeros zip zeros.tail).toList :+ (zeros.last, frames.length)
     }
 
     import BasicValue._

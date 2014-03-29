@@ -37,9 +37,8 @@ object CollapseStackManipulations extends MethodInfo.AnalyzeBasicTransform {
       case _ => curLocal += 1; curLocal - 1
     }
     val insns = method.instructions
-    val zBounds: List[(Int, Int)] = stackZeroBounds(frames) match {
-      case Nil => (0, insns.length) :: Nil; case zb => zb
-    }
+    val zBounds: List[(Int, Int)] = stackZeroBounds(frames)
+    println("zBounds="+zBounds.mkString(",") +" len="+ insns.length)
     val smBoundsByZ: List[List[(Int, Int)]] = zBounds map (insns.search(_, 2) {
       case anew(_) :: dup() :: _ => 2
       case dup()  :: _ => 1; case dup_x1()  :: _ => 1; case dup_x2()  :: _ => 1
