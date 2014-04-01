@@ -53,8 +53,8 @@ class RichInsnList(val insnList: InsnList) extends Buffer[Insn] {
     insnList.set(insn0, insn)
   }
 
-  def search(bound: (Int, Int), lim: Int)(
-    func: List[Insn] => Int): List[(Int, Int)] = {
+  def search(bound: (Int, Int),
+	     lim: Int)(func: List[Insn] => Int): List[(Int, Int)] = {
     def srch(idx: Int, res: List[(Int, Int)]): List[(Int, Int)] = {
       if (idx >= bound._2) res
       else {

@@ -39,7 +39,7 @@ object AnchorFloatingStmts extends MethodInfo.CFGTransform {
     }
     val insns = method.instructions
     val zBounds = stackZeroBounds(frames)
-    println("zBounds="+ zBounds)
+    //println("zBounds="+ zBounds)
     val hits = for ((zBeg, zEnd) <- zBounds) yield {
       val stmts =
 	for ((insn, idx) <- insns.slice(zBeg, zEnd - 1).zipWithIndex

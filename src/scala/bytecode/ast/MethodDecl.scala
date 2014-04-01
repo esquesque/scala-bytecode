@@ -31,8 +31,8 @@ class MethodDecl(val modifiers: List[Symbol],
   val returnType: Type = Type.getReturnType(desc)
   val body: List[Stmt] = structureBody(blocks.head)
 
-  def combIfs(entry: Block, cond: Cond,
-	      ifBlocks: List[Block], thenBlock: Block): Cond = ifBlocks match {
+  def combConds(entry: Block, cond: Cond,
+	      ifBlocks: List[Block], thenEntry: Block): Cond = ifBlocks match {
     case Nil => cond.invert
     case IfBlock(next, init, cond1) :: rest =>
       val succs = entry.successors
@@ -42,25 +42,80 @@ class MethodDecl(val modifiers: List[Symbol],
 	case _ => false
       }
       //LHA
-      if (sect exists (_.ordinal < thenBlock.ordinal))
-	combIfs(next,
-		if (succs contains thenBlock) Or(cond, cond1)
-		else And(cond.invert, if (discont) cond1.invert
-				      else cond1), rest, thenBlock)
+      if (sect exists (_.ordinal < thenEntry.ordinal))
+	combConds(next,
+		  if (succs contains thenEntry) Or(cond, cond1)
+		  else And(cond.invert, if (discont) cond1.invert
+					else cond1), rest, thenEntry)
       //RHA
       else
-	if (succs contains thenBlock)
-	  Or(cond, combIfs(next, cond1, rest, thenBlock))
+	if (succs contains thenEntry)
+	  Or(cond, combConds(next, cond1, rest, thenEntry))
 	else
-	  And(cond.invert, combIfs(next, cond1, rest, thenBlock))
+	  And(cond.invert, combConds(next, cond1, rest, thenEntry))
     case _ =>
-      println(" ***combIfs catchall***")
-      println("  ifBlocks="+ifBlocks)
-      println("  thenBlock="+thenBlock)
-      throw new RuntimeException
+      System.err.println("ERROR")
+      System.err.println(" entry=")
+      entry.debug(System.err, 2)
+      System.err.println(" ifs=")
+      ifBlocks foreach {
+	_.debug(System.err, 2)
+      }
+      System.err.println(" thenEntry=")
+      thenEntry.debug(System.err, 2)
+      throw new RuntimeException("unrecognized if-structure entry="+ entry +
+				 " ifs="+ (ifBlocks mkString ", ") +
+				 " thenEntry="+ thenEntry)
   }
 
-  def structIf(entry: Block, exit: Block, cond: Cond): Stmt = {
+  def structIf(entry: Block, exit: Block, cond: Cond): (Stmt, Option[Block]) = {
+    val nord = entry.ordinal
+    val xord = exit.ordinal
+    val nBlocks = xord - nord
+    val nDomRet = (entry.dominated.init filter (_.successors.isEmpty)).length
+    val subseqBlocks = (((nord + 1) until xord) map blocks).toList
+    val ifBlocks = subseqBlocks takeWhile {
+      case IfBlock(block, _, _) =>
+	! (block.dominates &&
+	   (block.dominated.init exists (_.successors.isEmpty)))
+      case _ => false
+    }
+    val thenEntry = blocks(nord + 1 + ifBlocks.length)
+    val thenExit = scopeExit(thenEntry) getOrElse blocks(thenEntry.ordinal + 1)
+    val n = (thenExit span exit).size + nDomRet
+    val m = (entry span thenExit).size + nDomRet
+
+    println("structIf2 #"+ nord +"-#"+ xord +
+	    "\n nBlocks="+ nBlocks +
+	    "\n nDomRet="+ nDomRet +
+	    "\n ifBlocks="+ ifBlocks +
+	    "\n thenEntry="+ thenEntry +
+	    "\n thenExit="+ thenExit +
+	    "\n n="+ n +
+	    "\n m="+ m)
+
+    val noElse = m % 2 != 0
+    val stmt = if (noElse) {
+      If(combConds(entry, cond, ifBlocks, thenEntry),
+	 Then(struct(thenEntry, Some(thenExit))))
+    } else {
+      val elseEntry = blocks(thenExit.ordinal - 1)
+      println(" elseEntry="+ elseEntry)
+      If(combConds(entry, cond, ifBlocks, thenEntry),
+	 Then(struct(thenEntry, Some(thenExit))),
+	 Else(struct(elseEntry, Some(exit))))
+    }
+    val trailing = if (noElse && thenExit != exit) Some(thenExit)
+    else None
+    (stmt, trailing)
+  }
+
+/*  def structIf(entry: Block, exit: Block, cond: Cond): Stmt = {
+    structIfTrailing(entry, exit, cond) match {
+      case (stmt, trailing) =>
+	println("..."+ stmt)
+	println("...trailingEntry="+ trailing)
+    }
     val ord = entry.ordinal
 
     val n = exit.ordinal - ord
@@ -71,7 +126,7 @@ class MethodDecl(val modifiers: List[Symbol],
     //I don't know why, but m is an even number for else-structures. This is its
     //only use.
 
-    println("structIf n="+ n +" m="+ m +" nReturned="+ nReturned)
+    println("structIf #"+ entry.ordinal +" n="+ n +" m="+ m +" nReturned="+ nReturned)
 
     if (m % 2 == 0) {//TODO deal with else structure (elif)
       if (nReturned == 0) {
@@ -79,18 +134,15 @@ class MethodDecl(val modifiers: List[Symbol],
 	val thenBlock = exit.predecessors.init.last
 	val elseBlock = exit.predecessors.last
 	assert(elseBlock.ordinal + 1 == exit.ordinal)
-	If(combIfs(entry, cond, ifBlocks, thenBlock),
+	If(combConds(entry, cond, ifBlocks, thenBlock),
 	   Then(struct(thenBlock, Some(elseBlock))),
 	   Else(struct(elseBlock, Some(exit))))
       } else {
 	val ifBlocks = (1 until n - 3).toList map (x => blocks(ord + x))
 	val thenBlock = blocks(ord + 2)
 	val elseBlock = exit.predecessors.head
-	println("ifBlocks="+ifBlocks)
-	println("thenBlock="+thenBlock)
-	println("elseBlock="+elseBlock)
 	//assert(elseBlock.ordinal + 1 == exit.ordinal)
-	If(combIfs(entry, cond, ifBlocks, thenBlock),
+	If(combConds(entry, cond, ifBlocks, thenBlock),
 	   Then(struct(thenBlock, Some(elseBlock))),
 	   Else(struct(elseBlock, Some(exit))))
       }
@@ -99,17 +151,27 @@ class MethodDecl(val modifiers: List[Symbol],
 	val ifBlocks = (1 until n - 1).toList map (m => blocks(ord + m))
 	val thenBlock = exit.predecessors.last
 	assert(thenBlock.ordinal + 1 == exit.ordinal)
-	If(combIfs(entry, cond, ifBlocks, thenBlock),
-	   Then(struct(thenBlock, Some(exit))))
+	//hack
+	(ifBlocks indexWhere (_.successors.isEmpty)) match {
+	  case -1 =>
+	    If(combConds(entry, cond, ifBlocks, thenBlock),
+	     Then(struct(thenBlock, scopeExit(thenBlock))))
+	  case idx =>
+	    val ifBlocks1 = ifBlocks.slice(0, idx)
+	    val thenBlock1 = ifBlocks(idx)
+	    If(combConds(entry, cond, ifBlocks1, thenBlock1),
+	       Then(struct(thenBlock1, scopeExit(thenBlock1))))
+	}
+	    
       } else {
 	val ifBlocks = (1 until n - 2).toList map (m => blocks(ord + m))
 	val thenBlock = blocks(ord + n - 1)
 	assert(thenBlock.ordinal + 1 == exit.ordinal)
-	If(combIfs(entry, cond, ifBlocks, thenBlock),
-	   Then(struct(thenBlock, Some(exit))))
+	If(combConds(entry, cond, ifBlocks, thenBlock),
+	   Then(struct(thenBlock, scopeExit(thenBlock))))
       }
     }
-  }
+  }*/
 
   def structTryCatch(entry: Block, exit: Block, tcs: List[TryCatch]): Stmt = {
     val endIdcs = tcs map (_._2)
@@ -119,7 +181,11 @@ class MethodDecl(val modifiers: List[Symbol],
     val endBlock = (blocks find (_.bound._1 == endIdcs.min)).get
     val stmts = entry match {
       case IfBlock(_, init, cond) if tcs.nonEmpty =>
-        init :+ structIf(entry, endBlock, cond)
+	structIf(entry, endBlock, cond) match {
+	  case (stmt, None) => init :+ stmt
+	  case (stmt, Some(trailing)) =>
+	    (init :+ stmt) ++ struct(trailing, Some(exit))
+	}
       case _ => entry.body
     }
     val handlerBlocks = handlerIdcs map (idx =>
@@ -130,27 +196,45 @@ class MethodDecl(val modifiers: List[Symbol],
     Try(stmts ++ endBlock.body, catches: _*)
   }
 
+  /* i still haven't grokked this pattern */
   def scopeExit(entry: Block): Option[Block] = entry.dominanceFrontier match {
     case Nil if entry.dominates => Some(entry.dominated.last)
     case Nil => None
-    case IfBlock(exit, _, _) :: _ =>
+    case IfBlock(exit, _, _) :: Nil
+	 if entry.dominated exists (_.successors.isEmpty) =>
+      Some(entry.dominated.last)
+    case IfBlock(exit, _, _) :: Nil =>
       Some(if ((entry.ordinal until exit.ordinal) map (i => blocks(i) match {
 	case IfBlock(_, _, _) => true; case _ => false
       } ) reduce (_ & _)) entry.dominated.last else exit)
-    case xs =>
+    case df if entry.dominated exists (_.successors.isEmpty) =>
+      val ldf = df.last
+      val ldom = entry.dominated.last
+      Some(if (ldf.ordinal < ldom.ordinal) ldf else ldom)
+    case xs if entry.dominates =>
       val x = xs.last
       val y = entry.dominated.last
-      Some(if (x.ordinal > y.ordinal) x else y)
+      Some(if (x.ordinal < y.ordinal &&
+	       ! (x.dominanceFrontier contains y)) x else y)
+    case xs =>
+      Some(xs.last)
   }
 
   def struct(entry: Block, exit: Option[Block]): List[Stmt] = {
-    println("struct entry="+ entry +" exit="+ exit)
+    println("struct\n entry=")
+    entry.debug(System.out, 2)
+    println(" exit=")
+    exit foreach (_.debug(System.out, 2))
     val enteringTryCatches = tryCatches filter (_._1 == entry.bound._1)
     entry match {
       case _ if enteringTryCatches.nonEmpty =>
         structTryCatch(entry, exit.get, enteringTryCatches) :: Nil
       case IfBlock(_, init, cond) =>
-	init :+ structIf(entry, exit.get, cond)
+	structIf(entry, exit.get, cond) match {
+	  case (stmt, None) => init :+ stmt
+	  case (stmt, Some(trailing)) =>
+	    (init :+ stmt) ++ struct(trailing, exit)
+	}
       case _ => entry.body
     }
   }

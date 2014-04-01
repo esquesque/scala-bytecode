@@ -38,7 +38,7 @@ object CollapseStackManipulations extends MethodInfo.AnalyzeBasicTransform {
     }
     val insns = method.instructions
     val zBounds: List[(Int, Int)] = stackZeroBounds(frames)
-    println("zBounds="+zBounds.mkString(",") +" len="+ insns.length)
+    //println("zBounds="+zBounds.mkString(",") +" len="+ insns.length)
     val smBoundsByZ: List[List[(Int, Int)]] = zBounds map (insns.search(_, 2) {
       case anew(_) :: dup() :: _ => 2
       case dup()  :: _ => 1; case dup_x1()  :: _ => 1; case dup_x2()  :: _ => 1
@@ -46,7 +46,7 @@ object CollapseStackManipulations extends MethodInfo.AnalyzeBasicTransform {
       //case swap() :: _ => 1
       case _ => 0
     } )
-    println(zBounds)
+    //println(smBoundsByZ)
     val spec: MethodInfo.InsnSpec = ((zBounds zip smBoundsByZ) map {
       case (zBound, smBounds) => (smBounds map { smBound =>
 	val insn = insns(smBound._1)

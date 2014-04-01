@@ -64,26 +64,6 @@ extends MemberInfo[MethodNode, ast.MethodDecl] {
 
   val instructions: asm.RichInsnList = new asm.RichInsnList(node.instructions)
 
-  def apply(changes: MethodInfo.Changes): MethodInfo.Record = {
-    val record = MethodInfo.Record(changes.maxStack map (node.maxStack -> _),
-				   changes.maxLocals map (node.maxLocals -> _),
-				   Nil)//gotta convert InsnSpec=>InsnSpecRecord
-    //before mutate
-    if (changes.maxStack.isDefined)  { node.maxStack = changes.maxStack.get }
-    if (changes.maxLocals.isDefined) { node.maxLocals = changes.maxLocals.get }
-    if (changes.insnSpec.nonEmpty)   { instructions.mutate(changes.insnSpec) }
-    record
-  }
-
-  def apply(transform: MethodInfo.Transform): MethodInfo.Record =
-    apply(transform(this))
-
-  def apply(transforms: MethodInfo.Transform*): List[MethodInfo.Record] =
-    transforms.map(transform => apply(transform(this))).toList
-
-  def abstractStack: List[MethodInfo.Record] =
-    apply(CollapseStackManipulations, AnchorFloatingStmts)
-
   /* @return a 4-ple to avoid the need for a wrapper for TryCatchBlockNode;
    *  fourth element is an optional exception descriptor (None for finally).
    */
@@ -107,6 +87,26 @@ extends MemberInfo[MethodNode, ast.MethodDecl] {
 	node.tryCatchBlocks.asInstanceOf[list[TCB]].add(tcb)
     }
   }
+
+  def apply(changes: MethodInfo.Changes): MethodInfo.Record = {
+    val record = MethodInfo.Record(changes.maxStack map (node.maxStack -> _),
+				   changes.maxLocals map (node.maxLocals -> _),
+				   Nil)//gotta convert InsnSpec=>InsnSpecRecord
+    //before mutate
+    if (changes.maxStack.isDefined)  { node.maxStack = changes.maxStack.get }
+    if (changes.maxLocals.isDefined) { node.maxLocals = changes.maxLocals.get }
+    if (changes.insnSpec.nonEmpty)   { instructions.mutate(changes.insnSpec) }
+    record
+  }
+
+  def apply(transform: MethodInfo.Transform): MethodInfo.Record =
+    apply(transform(this))
+
+  def apply(transforms: MethodInfo.Transform*): List[MethodInfo.Record] =
+    transforms.map(transform => apply(transform(this))).toList
+
+  def abstractStack: List[MethodInfo.Record] =
+    apply(CollapseStackManipulations, AnchorFloatingStmts)
 
   private var preds: Array[Array[Int]] = null
   private var succs: Array[Array[Int]] = null

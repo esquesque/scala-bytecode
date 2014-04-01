@@ -268,27 +268,29 @@ class Block(val ordinal: Int,
   }
 
   def debug(ps: java.io.PrintStream, indent: Int) {
-    def str(b: (Int, Int)): String = b._1 +".."+ b._2
     ps append " "* indent
-    ps append "//block "
-    ps append str(bound)
-    ps append " "
-    ps append info.cfg.predecessors(bound).map(str).mkString("[", ", ", "]")
-    ps append "->; ->"
-    ps append info.cfg.successors(bound).map(str).mkString("[", ", ", "]")
+    ps append "//"
+    ps append toString
+    ps append predecessors.map(_.ordinal).mkString(" [#", ", #", "]-->*-->")
+    ps append successors.map(_.ordinal).mkString("[#", ", #", "] domd=")
+    ps append dominated.map(_.ordinal).mkString("[#", ", #", "] df=")
+    ps append dominanceFrontier.map(_.ordinal).mkString("[#", ", #", "] dl=")
+    ps append dominanceLost.map(_.ordinal).mkString("[#", ", #", "]")
     ps append '\n'
   }
 
   override def toString = {
     val insns = info.instructions
-    "[#"+ ordinal +"; "+ bound._1 +".."+ bound._2 +"; "+ (bound match {
+    "(#"+ ordinal +"; "+
+    bound._1 +".."+ bound._2 +"; "+
+    (bound match {
       case (beg, end) if beg == end - 1 =>
 	insnString(insns(beg))
       case (beg, end) if beg == end - 2 =>
 	insnString(insns(beg)) +"; "+ insnString(insns(end - 1))
       case (beg, end) =>
 	insnString(insns(beg)) +"..."+ insnString(insns(end - 1))
-    } ) +']'
+    } ) +')'
   }
 
   override def equals(any: Any): Boolean = any match {
