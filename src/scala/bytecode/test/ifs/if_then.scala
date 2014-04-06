@@ -5,7 +5,7 @@ import scala.bytecode.ast._
 
 object if_then extends scala.bytecode.test.ASTCase {
   val maxStack = 1
-  val maxLocals = 2
+  val maxLocals = 1
   val name = "if"
   val desc = "(Z)V"
   val insns = {

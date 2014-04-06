@@ -1,29 +1,31 @@
 package scala.bytecode.test
 
 package object ifs {
-/*I have picked a random sequence off OEIS that fit the experimental data I have
- *derived about this hellish kind of combinatorial logic:
+/*I picked a random sequence off OEIS that fits the experimental data I have
+ *derived from this hellish kind of combinatorial logic:
 
  *(A162213) a(n) = the smallest positive multiple of n with exactly n digits
  *                 when written in binary.
 
- *So how many combinations of 4-bool 3-operation SCs are there?
+ *So how many combinations of 4-boolean 3-operation SCs are there?
  *Answer: 4 associativities (with 6 demonstrable duplicates due to adjacent
  *        (and)s or (or)s) for each combination of which there are demonstrably 6,
  *        plus (and_and_and) and (or_or_or) which gives 4*6-6+2=20=a(5)
  */
   val cases: List[ASTCase] =
-//n=1 1-bool
+//n=1 1-boolean
 //a(1)=1 0b1
     if_then ::
-    //if_else ::
+    if_else ::
+    if_elif ::
+    if_elif_else ::
 //n=2 2-bool 1-operation short-circuits (SCs)
-//a(2)=2 0b10 
+//a(2)=2 0b10
     if_and ::
     if_and_else ::
     if_or ::
     if_or_else ::
-//n=3 3-bool 2-operation SCs
+//n=3 3-bool 2-op SCs
 //a(3)=2^2+2=6 0b110
     if_and_and ::
     if_or_or ::
@@ -31,7 +33,7 @@ package object ifs {
     if_and_Or ::
     if_Or_and ::
     if_or_And ::
-//n=5 4-bool 3-operation SCs
+//n=5 4-bool 3-op SCs
 // ...why n=5 and not 4? (this would only give 8 accd. to the sequence)
 //a(5)=2^2^2+2^2=20 0b10100 0x14
     if_and_and_and ::
@@ -44,9 +46,10 @@ package object ifs {
 //
     if_OR_And_and ::
     if_or_And_AND ::
+//...12 more...
     Nil
 
-/*a(n)
+/*a(n)=
  *  1 1
  *  2 2
  *  3 6

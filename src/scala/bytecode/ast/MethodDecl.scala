@@ -82,7 +82,7 @@ class MethodDecl(val modifiers: List[Symbol],
     }
     val thenEntry = blocks(nord + 1 + ifBlocks.length)
     val thenExit = scopeExit(thenEntry) getOrElse blocks(thenEntry.ordinal + 1)
-    val n = (thenExit span exit).size + nDomRet
+    val n = xord - thenEntry.ordinal
     val m = (entry span thenExit).size + nDomRet
 
     println("structIf2 #"+ nord +"-#"+ xord +
@@ -94,20 +94,37 @@ class MethodDecl(val modifiers: List[Symbol],
 	    "\n n="+ n +
 	    "\n m="+ m)
 
-    val noElse = m % 2 != 0
-    val stmt = if (noElse) {
-      If(combConds(entry, cond, ifBlocks, thenEntry),
-	 Then(struct(thenEntry, Some(thenExit))))
-    } else {
-      val elseEntry = blocks(thenExit.ordinal - 1)
-      println(" elseEntry="+ elseEntry)
-      If(combConds(entry, cond, ifBlocks, thenEntry),
-	 Then(struct(thenEntry, Some(thenExit))),
-	 Else(struct(elseEntry, Some(exit))))
+    val noElse = if (thenExit != exit) thenExit.ordinal - thenEntry.ordinal <= 1
+		 else xord - thenEntry.ordinal <= 1
+    //val noElse = m % 2 != 0
+    var elseExit: Block = null
+    val stmt =
+      if (noElse) {
+	If(combConds(entry, cond, ifBlocks, thenEntry),
+	   Then(struct(thenEntry, Some(thenExit))))
+      } else {
+	println("***"+ ifBlocks.lastOption.getOrElse(entry).dominated)
+	val elseEntry = ifBlocks.lastOption.getOrElse(entry).dominated match {
+	  case domd if domd.last == thenExit => domd.init.last
+	  case domd => domd.last
+	}
+	//val elseEntry = blocks(thenExit.ordinal - 1)
+	elseExit = scopeExit(elseEntry).get
+	println(" *elseEntry="+ elseEntry)
+	println(" *elseExit="+ elseExit)
+	If(combConds(entry, cond, ifBlocks, thenEntry),
+	   Then(struct(thenEntry, Some(thenExit))),
+	   Else(struct(elseEntry, Some(elseExit))))
     }
-    val trailing = if (noElse && thenExit != exit) Some(thenExit)
-    else None
-    (stmt, trailing)
+    println(" stmt="+ stmt)
+    val trailing =
+      if (noElse) {
+	if (thenExit != exit) Some(thenExit) else None
+      } else {
+	if (elseExit != exit) Some(elseExit) else None
+      }
+    if (trailing.isDefined) println(" *trailing="+ trailing.get)
+    (stmt, None)
   }
 
 /*  def structIf(entry: Block, exit: Block, cond: Cond): Stmt = {

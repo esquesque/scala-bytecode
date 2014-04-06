@@ -20,9 +20,25 @@ package scala.bytecode
 import asm._
 import org.objectweb.asm.tree.analysis.Frame
 
+/* This routine searches for instances of an instruction that is "floating" i.e.
+ * where there exists more than zero values on the stack, and is a "statement"
+ * i.e. does not push a value to the stack. If it finds such an instruction,
+ * given index of which stmt_idx, the sequence is as follows:
+ * seq=[zeroBeg..[stmtBeg...stmtIdx].[stmtEnd..zeroEnd]]
+ *
+ * If any instructions between zeroBeg and stmtBeg have side effects then the
+ * the entire stack is stored to vars and loaded at the appropriate indices,
+ * otherwise the entirety of [stmtBeg...stmtIdx] is moved to zeroBeg.
+ *
+ * This works for nested instances of seq.
+ */
+
 object AnchorFloatingStmts extends MethodInfo.CFGTransform {
   val interpreter = MethodInfo.basicInterpreter
 
+  /* @return a MethodInfo.Changes object which is then applied to a MethodInfo
+   *         to yield the desired stack simplification
+   */
   def apply(method: MethodInfo,
 	    frames: Array[Frame],
 	    cfg: ControlFlowGraph): MethodInfo.Changes = {
@@ -90,7 +106,7 @@ object AnchorFloatingStmts extends MethodInfo.CFGTransform {
 		(storeIdx, loadIdx, valueDesc(value))
 	    }
 	  }
-	  println("***\n"+ preSubSpecs.mkString("\n"))
+	  //println("***\n"+ preSubSpecs.mkString("\n"))
 	  val xyz: List[(Int, Int, Option[String])] = preSubSpecs match {
 	    case _ :: Nil => preSubSpecs.flatten
 	    case _ :: _ :: Nil => func(preSubSpecs)
