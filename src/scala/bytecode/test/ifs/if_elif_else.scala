@@ -29,10 +29,14 @@ object if_elif_else extends scala.bytecode.test.ASTCase {
   }
 
   val test: Test = {
-    case Exec(If(True(_), Then(_),
-			  Else(Label(_) ::
-			       If(True(_), Then(_),
-					   Else(_)) :: Nil)) :: _) => true
+    case Exec(If(True(_),
+		 Then(Void(Method(_, "bar", _, _, _)) :: _),
+                 Else(Label(_) ::
+		      If(True(_),
+			 Then(Void(Method(_, "baz", _, _, _)) :: _),
+			 Else(Label(_) ::
+			      Void(Method(_, "qux", _, _, _)) :: _)) ::
+		      Nil)) :: _) => true
     case tree => false
   }
 }

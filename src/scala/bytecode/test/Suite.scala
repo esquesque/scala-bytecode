@@ -20,7 +20,10 @@ trait Suite {
 	}
 	val r = c.apply
 	c match {
-	  case astc: ASTCase => astc.tree.out(pnt(len), 2)
+	  case astc: ASTCase =>
+	    val tree = astc.tree
+	    tree.blocks foreach (_.debug(pnt(len), 0))
+	    tree.out(pnt(len), 2)
 	  case _ => c.method.tree.out(pnt(len), 2)
 	}
 	r

@@ -74,11 +74,19 @@ class MethodDecl(val modifiers: List[Symbol],
     val nBlocks = xord - nord
     val nDomRet = (entry.dominated.init filter (_.successors.isEmpty)).length
     val subseqBlocks = (((nord + 1) until xord) map blocks).toList
-    val ifBlocks = subseqBlocks takeWhile {
+    val ifBlocks = (subseqBlocks takeWhile {
       case IfBlock(block, _, _) =>
 	! (block.dominates &&
 	   (block.dominated.init exists (_.successors.isEmpty)))
       case _ => false
+    } ) match {
+      case Nil => Nil
+      case blocks =>
+	val idx = ((entry :: blocks) zip blocks) indexWhere {
+	  case (blk0, blk1) =>
+	    (blk0.successors intersect blk1.successors).isEmpty
+	}
+	if (idx < 0) blocks else blocks take idx
     }
     val thenEntry = blocks(nord + 1 + ifBlocks.length)
     val thenExit = scopeExit(thenEntry) getOrElse blocks(thenEntry.ordinal + 1)
@@ -104,13 +112,16 @@ class MethodDecl(val modifiers: List[Symbol],
 	   Then(struct(thenEntry, Some(thenExit))))
       } else {
 	println("***"+ ifBlocks.lastOption.getOrElse(entry).dominated)
-	val elseEntry = ifBlocks.lastOption.getOrElse(entry).dominated match {
-	  case domd if domd.last == thenExit => domd.init.last
-	  case domd => domd.last
-	}
+	val elseEntry =
+	  //if (ifBlocks.isEmpty && thenExit.ordinal < exit.ordinal) thenExit
+	  /*else */ifBlocks.lastOption.getOrElse(entry).dominated match {
+	    case domd if domd.last.successors.isEmpty ||
+			 domd.last == thenExit => domd.init.last
+	    case domd => domd.last
+	  }
 	//val elseEntry = blocks(thenExit.ordinal - 1)
-	elseExit = scopeExit(elseEntry).get
 	println(" *elseEntry="+ elseEntry)
+	elseExit = scopeExit(elseEntry).get
 	println(" *elseExit="+ elseExit)
 	If(combConds(entry, cond, ifBlocks, thenEntry),
 	   Then(struct(thenEntry, Some(thenExit))),
