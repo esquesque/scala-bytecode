@@ -62,19 +62,15 @@ object AnchorFloatingStmts extends MethodInfo.CFGTransform {
 	     if ! isExpr(insn)) yield {
 	       var stmtIdx = zBeg + idx
 	       val nextFrame = frames(stmtIdx + 1)
-	       //println("*************************************************")
-	       //insns.slice(zBeg, stmtIdx + 1) map insnString foreach println
 	       val stmtBeg = ((zBeg until stmtIdx).reverse find (x =>
 		 frames(x).getStackSize == nextFrame.getStackSize)) match {
 		   case Some(idx) => idx
-		   case None =>
-		     throw new RuntimeException("no eq stack frame w/i "+
+		   case None => throw new RuntimeException("no eq stack frame w/i "+
 						zBeg +"..."+stmtIdx)
 		 }
 	       insns(stmtIdx) match {
 		 case JumpInsnNode(_, lbl) =>
 		   val ord = cfg.bounds.indexWhere(_._2 == stmtIdx + 1)
-		   //println("df"+ cfg.bounds(ord) +"="+ (cfg.dominanceFrontiers(ord) map cfg.bounds))
 		   stmtIdx = cfg.bounds(cfg.dominanceFrontiers(ord).head)._1
 		 case _ =>
 	       }
@@ -106,7 +102,6 @@ object AnchorFloatingStmts extends MethodInfo.CFGTransform {
 		(storeIdx, loadIdx, valueDesc(value))
 	    }
 	  }
-	  //println("***\n"+ preSubSpecs.mkString("\n"))
 	  val xyz: List[(Int, Int, Option[String])] = preSubSpecs match {
 	    case _ :: Nil => preSubSpecs.flatten
 	    case _ :: _ :: Nil => func(preSubSpecs)
@@ -126,9 +121,6 @@ object AnchorFloatingStmts extends MethodInfo.CFGTransform {
 	      val stmtFrame = frames(stmtIdx)
 	      val stmtEnds = ((stmtBeg to stmtIdx) filter (idx =>
 		frames(idx).getStackSize == stmtFrame.getStackSize)).toList
-	      //println("zBeg="+ zBeg)
-	      //println("stmtBeg="+ stmtBeg)
-	      //println("###"+ stmtEnds)
 	      val stmtEnd = stmtEnds match {
 		case end :: Nil => end
 		case end0 :: end1 :: Nil =>
@@ -136,8 +128,6 @@ object AnchorFloatingStmts extends MethodInfo.CFGTransform {
 		    insnPushes(insns(end))) reduce (_ & _)) end1 else end0
 		case _ => throw new RuntimeException
 	      }
-	      //println("stmtEnd="+ stmtEnd)
-	      //println("stmtIdx="+ stmtIdx)
 	      val stmt = (insns.slice(stmtBeg, stmtEnd).toList map insnClone) :+
 			  insnClone(insns(stmtIdx))
 	      (stmtIdx, stmtIdx + 1) -> Nil  ::

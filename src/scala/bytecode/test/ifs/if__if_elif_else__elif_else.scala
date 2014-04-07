@@ -39,7 +39,8 @@ object if__if_elif_else__elif_else extends scala.bytecode.test.ASTCase {
       lbl4,
       vreturn())
   }
-/*       0: iload_1       
+/*javap
+       0: iload_1       
        1: ifeq          33
        4: iload_2       
        5: ifeq          15

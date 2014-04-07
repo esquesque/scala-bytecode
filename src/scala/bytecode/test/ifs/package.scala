@@ -19,14 +19,13 @@ package object ifs {
     if_else ::
     if_elif ::
     if_elif_else ::
+    if__if_elif_else__elif_else ::
 //n=2 2-bool 1-operation short-circuits (SCs)
 //a(2)=2 0b10
     if_and ::
     if_and_else ::
     if_or ::
     if_or_else ::
-    if__if_elif_else__elif_else :: Nil}
-/*
 //n=3 3-bool 2-op SCs
 //a(3)=2^2+2=6 0b110
     if_and_and ::
@@ -89,4 +88,3 @@ package object ifs {
  *but n=[1,2,3,5,8] would be a subset of the Fibonacci.
  */
 }
-*/

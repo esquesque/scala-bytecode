@@ -84,23 +84,20 @@ class MethodDecl(val modifiers: List[Symbol],
       case blocks =>
 	val idx = ((entry :: blocks) zip blocks) indexWhere {
 	  case (blk0, blk1) =>
+	    (blk1.successors intersect blocks).isEmpty &&
 	    (blk0.successors intersect blk1.successors).isEmpty
 	}
 	if (idx < 0) blocks else blocks take idx
     }
     val thenEntry = blocks(nord + 1 + ifBlocks.length)
     val thenExit = scopeExit(thenEntry) getOrElse blocks(thenEntry.ordinal + 1)
-    val n = xord - thenEntry.ordinal
-    val m = (entry span thenExit).size + nDomRet
 
     println("structIf2 #"+ nord +"-#"+ xord +
 	    "\n nBlocks="+ nBlocks +
 	    "\n nDomRet="+ nDomRet +
 	    "\n ifBlocks="+ ifBlocks +
 	    "\n thenEntry="+ thenEntry +
-	    "\n thenExit="+ thenExit +
-	    "\n n="+ n +
-	    "\n m="+ m)
+	    "\n thenExit="+ thenExit)
 
     val noElse = if (thenExit != exit) thenExit.ordinal - thenEntry.ordinal <= 1
 		 else xord - thenEntry.ordinal <= 1
@@ -128,14 +125,17 @@ class MethodDecl(val modifiers: List[Symbol],
 	   Else(struct(elseEntry, Some(elseExit))))
     }
     println(" stmt="+ stmt)
+    //it's handling trailing wrong... hhmmmm
+    //should never check by ordinal
+    //should trailing be used as an exit block correction?
     val trailing =
       if (noElse) {
-	if (thenExit != exit) Some(thenExit) else None
+	if (thenExit.ordinal < exit.ordinal) Some(thenExit) else None
       } else {
-	if (elseExit != exit) Some(elseExit) else None
+	if (elseExit.ordinal < exit.ordinal) Some(elseExit) else None
       }
     if (trailing.isDefined) println(" *trailing="+ trailing.get)
-    (stmt, None)
+    (stmt, None)//for now
   }
 
 /*  def structIf(entry: Block, exit: Block, cond: Cond): Stmt = {
