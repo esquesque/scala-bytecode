@@ -49,16 +49,29 @@ object AnchorFloatingStmts extends MethodInfo.CFGTransform {
       case _ =>
 	curLocal += 1; curLocal - 1
     }
+    val insns = method.instructions
+    def ignoreInterBlocks(zBeg: Int, zEnd: Int): Seq[(Insn, Int)] = {
+      val slice = insns.slice(zBeg, zEnd - 1).zipWithIndex
+      (cfg.bounds find (_._1 == zBeg)) match {
+	case Some(nbound) if nbound._2 != zEnd =>
+	  (cfg.bounds find (_._2 == zEnd)) match {
+	    case Some(xbound) if xbound._2 == zEnd =>
+	      (slice take (nbound._2 - nbound._1)) ++
+	      (slice takeRight (xbound._2 - xbound._1 - 1))
+	    case _ => slice
+	  }
+	case _ => slice
+      }
+    }
     def isExpr(insn: Insn): Boolean = insn match {
-      case label() => true
+      //case JumpInsnNode(_, _) => true
       case _ => insnPushes(insn)
     }
-    val insns = method.instructions
     val zBounds = stackZeroBounds(frames)
     //println("zBounds="+ zBounds)
     val hits = for ((zBeg, zEnd) <- zBounds) yield {
       val stmts =
-	for ((insn, idx) <- insns.slice(zBeg, zEnd - 1).zipWithIndex
+	for ((insn, idx) <- ignoreInterBlocks(zBeg, zEnd)
 	     if ! isExpr(insn)) yield {
 	       var stmtIdx = zBeg + idx
 	       val nextFrame = frames(stmtIdx + 1)
@@ -66,7 +79,7 @@ object AnchorFloatingStmts extends MethodInfo.CFGTransform {
 		 frames(x).getStackSize == nextFrame.getStackSize)) match {
 		   case Some(idx) => idx
 		   case None => throw new RuntimeException("no eq stack frame w/i "+
-						zBeg +"..."+stmtIdx)
+							   zBeg +"..."+stmtIdx)
 		 }
 	       insns(stmtIdx) match {
 		 case JumpInsnNode(_, lbl) =>

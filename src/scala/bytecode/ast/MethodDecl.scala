@@ -106,7 +106,7 @@ class MethodDecl(val modifiers: List[Symbol],
     val stmt =
       if (noElse) {
 	If(combConds(entry, cond, ifBlocks, thenEntry),
-	   Then(struct(thenEntry, Some(thenExit))))
+	   Then(struct(thenEntry, Some(thenExit))._1))
       } else {
 	println("***"+ ifBlocks.lastOption.getOrElse(entry).dominated)
 	val elseEntry =
@@ -121,8 +121,8 @@ class MethodDecl(val modifiers: List[Symbol],
 	elseExit = scopeExit(elseEntry).get
 	println(" *elseExit="+ elseExit)
 	If(combConds(entry, cond, ifBlocks, thenEntry),
-	   Then(struct(thenEntry, Some(thenExit))),
-	   Else(struct(elseEntry, Some(elseExit))))
+	   Then(struct(thenEntry, Some(thenExit))._1),
+	   Else(struct(elseEntry, Some(elseExit))._1))
     }
     println(" stmt="+ stmt)
     //it's handling trailing wrong... hhmmmm
@@ -135,7 +135,7 @@ class MethodDecl(val modifiers: List[Symbol],
 	if (elseExit.ordinal < exit.ordinal) Some(elseExit) else None
       }
     if (trailing.isDefined) println(" *trailing="+ trailing.get)
-    (stmt, None)//for now
+    (stmt, trailing)//for now
   }
 
 /*  def structIf(entry: Block, exit: Block, cond: Cond): Stmt = {
@@ -201,7 +201,8 @@ class MethodDecl(val modifiers: List[Symbol],
     }
   }*/
 
-  def structTryCatch(entry: Block, exit: Block, tcs: List[TryCatch]): Stmt = {
+  def structTryCatch(entry: Block, exit: Block,
+		     tcs: List[TryCatch]): Stmt = {
     val endIdcs = tcs map (_._2)
     val handlerIdcs = tcs map (_._3)
     val excns = tcs map (_._4)
@@ -209,17 +210,15 @@ class MethodDecl(val modifiers: List[Symbol],
     val endBlock = (blocks find (_.bound._1 == endIdcs.min)).get
     val stmts = entry match {
       case IfBlock(_, init, cond) if tcs.nonEmpty =>
-	structIf(entry, endBlock, cond) match {
-	  case (stmt, None) => init :+ stmt
-	  case (stmt, Some(trailing)) =>
-	    (init :+ stmt) ++ struct(trailing, Some(exit))
+	structIf(entry, exit, cond) match {
+	  case (stmt, nextOpt) => init :+ stmt
 	}
       case _ => entry.body
     }
     val handlerBlocks = handlerIdcs map (idx =>
       (blocks find (_.bound._1 == idx)).get)
     val catches = (handlerBlocks zip excns) map {
-      case (block, excn) => Catch(struct(block, Some(exit)), excn)
+      case (block, excn) => Catch(struct(block, Some(exit))._1, excn)
     }
     Try(stmts ++ endBlock.body, catches: _*)
   }
@@ -248,7 +247,7 @@ class MethodDecl(val modifiers: List[Symbol],
       Some(xs.last)
   }
 
-  def struct(entry: Block, exit: Option[Block]): List[Stmt] = {
+  def struct(entry: Block, exit: Option[Block]): (List[Stmt], Option[Block]) = {
     println("struct\n entry=")
     entry.debug(System.out, 2)
     println(" exit=")
@@ -256,21 +255,27 @@ class MethodDecl(val modifiers: List[Symbol],
     val enteringTryCatches = tryCatches filter (_._1 == entry.bound._1)
     entry match {
       case _ if enteringTryCatches.nonEmpty =>
-        structTryCatch(entry, exit.get, enteringTryCatches) :: Nil
+        (structTryCatch(entry, exit.get, enteringTryCatches) :: Nil, None)
       case IfBlock(_, init, cond) =>
 	structIf(entry, exit.get, cond) match {
-	  case (stmt, None) => init :+ stmt
-	  case (stmt, Some(trailing)) =>
-	    (init :+ stmt) ++ struct(trailing, exit)
+	  case (stmt, nextOpt) => (init :+ stmt, nextOpt)
 	}
-      case _ => entry.body
+      case _ => (entry.body, None)
     }
   }
 
   def structureBody(entry: Block): List[Stmt] = {
     val exit = scopeExit(entry)
-    val stmts = struct(entry, exit)
-    if (exit.isDefined) stmts ++ structureBody(exit.get) else stmts
+    struct(entry, exit) match {
+      case (stmts, Some(next)) =>
+	println("structureBody\nnext=")
+	next.debug(System.out, 2)
+	println("exit=")
+	exit.get.debug(System.out, 2)
+	stmts ++ structureBody(next)
+      case (stmts, None) if exit.isDefined => stmts ++ structureBody(exit.get)
+      case (stmts, None) => stmts
+    }
   }
 
   def out(ps: java.io.PrintStream, indent: Int) {

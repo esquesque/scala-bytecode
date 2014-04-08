@@ -33,13 +33,15 @@ object CollapseTernaryExprs extends MethodInfo.CFGTransform {
       case _ =>
 	curLocal += 1; curLocal - 1
     }
+    val tcs = method.tryCatches
     val nonZeroBlockBounds = cfg.bounds filter {
-      case (beg, end) =>
+      case (beg, end) if ! (tcs exists (_._3 == beg)) =>
 	val begDepth = frames(beg).getStackSize
 	val endDepth = if (end == frames.length) 0 else frames(end).getStackSize
 	//println((beg, end))
 	//println("depth "+ (begDepth, endDepth))
 	begDepth > 0 && begDepth > endDepth
+      case _ => false
     }
     val spec: MethodInfo.InsnSpec =
       (for (bound <- nonZeroBlockBounds) yield {
