@@ -15,8 +15,10 @@
  *along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package scala.bytecode.ast
+package scala.bytecode
 
-case class Local(index: Int, id: Symbol, desc: String) extends Expr {
-  def show(cap: Boolean) = id.name
-}
+sealed abstract class EdgeKind
+case object Forward extends EdgeKind
+case object Back extends EdgeKind
+case object Cross extends EdgeKind
+case object Tree extends EdgeKind

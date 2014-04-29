@@ -50,7 +50,8 @@ object AnchorFloatingStmts extends MethodInfo.CFGTransform {
 	curLocal += 1; curLocal - 1
     }
     val insns = method.instructions
-    def ignoreInterBlocks(zBeg: Int, zEnd: Int): Seq[(Insn, Int)] = {
+    val tcs = method.tryCatches
+    def tailor(zBeg: Int, zEnd: Int): Seq[(Insn, Int)] = {
       val slice = insns.slice(zBeg, zEnd - 1).zipWithIndex
       (cfg.bounds find (_._1 == zBeg)) match {
 	case Some(nbound) if nbound._2 != zEnd =>
@@ -63,23 +64,19 @@ object AnchorFloatingStmts extends MethodInfo.CFGTransform {
 	case _ => slice
       }
     }
-    def isExpr(insn: Insn): Boolean = insn match {
-      //case JumpInsnNode(_, _) => true
-      case _ => insnPushes(insn)
-    }
     val zBounds = stackZeroBounds(frames)
-    //println("zBounds="+ zBounds)
+    println("zBounds="+ zBounds)
     val hits = for ((zBeg, zEnd) <- zBounds) yield {
       val stmts =
-	for ((insn, idx) <- ignoreInterBlocks(zBeg, zEnd)
-	     if ! isExpr(insn)) yield {
+	for ((insn, idx) <- tailor(zBeg, zEnd) if ! insnPushes(insn)) yield {
 	       var stmtIdx = zBeg + idx
 	       val nextFrame = frames(stmtIdx + 1)
 	       val stmtBeg = ((zBeg until stmtIdx).reverse find (x =>
 		 frames(x).getStackSize == nextFrame.getStackSize)) match {
 		   case Some(idx) => idx
-		   case None => throw new RuntimeException("no eq stack frame w/i "+
-							   zBeg +"..."+stmtIdx)
+		   case None =>
+		     throw new RuntimeException("no eq stack frame w/i "+
+						zBeg +"..."+stmtIdx)
 		 }
 	       insns(stmtIdx) match {
 		 case JumpInsnNode(_, lbl) =>

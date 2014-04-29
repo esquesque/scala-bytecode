@@ -20,7 +20,7 @@ package scala.bytecode.ast
 import org.objectweb.asm.tree.{AbstractInsnNode => Insn}
 import org.objectweb.asm.tree.analysis.{Frame, SourceValue}
 
-import scala.bytecode.{MethodInfo, ControlFlowGraph}
+import scala.bytecode.{EdgeKind, MethodInfo, ControlFlowGraph}
 import scala.bytecode.asm._
 
 import scala.collection.immutable.HashSet
@@ -38,6 +38,12 @@ class Block(val ordinal: Int,
 
   lazy val successors: List[Block] =
     (cfg successors bound) map (succ => blocks(cfg.bounds indexOf succ))
+
+  lazy val edgesIn: List[(Block, EdgeKind)] = predecessors map (pred =>
+    (pred, cfg.dfst.edgeKinds(pred.ordinal -> ordinal)))
+
+  lazy val edgesOut: List[(Block, EdgeKind)] = successors map (succ =>
+    (succ, cfg.dfst.edgeKinds(ordinal -> succ.ordinal)))
 
   def span(to: Block): Set[(Block, Block)] = {
     val succs = successors filter (_.ordinal <= to.ordinal)
@@ -84,7 +90,7 @@ class Block(val ordinal: Int,
     loc
   }
 
-  //TODO
+  //severe TODO
   def mergePredLocal(v: Int): Option[Local] = {
     predecessors foreach (_.body)
     (predecessors map (_.loadLocal(v))).headOption
@@ -272,7 +278,11 @@ class Block(val ordinal: Int,
     ps append "//"
     ps append toString
     ps append predecessors.map(_.ordinal).mkString(" [#", ", #", "]-->*-->")
-    ps append successors.map(_.ordinal).mkString("[#", ", #", "] domd=")
+    ps append successors.map(_.ordinal).mkString("[#", ", #", "] eks=")
+    val dfst = cfg.dfst
+    ps append successors.map(s =>
+      dfst.edgeKinds(ordinal -> s.ordinal)).mkString(",")
+    ps append " domd="
     ps append dominated.map(_.ordinal).mkString("[#", ", #", "] df=")
     ps append dominanceFrontier.map(_.ordinal).mkString("[#", ", #", "] dl=")
     ps append dominanceLost.map(_.ordinal).mkString("[#", ", #", "]")

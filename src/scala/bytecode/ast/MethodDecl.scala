@@ -99,6 +99,7 @@ class MethodDecl(val modifiers: List[Symbol],
 	    "\n thenEntry="+ thenEntry +
 	    "\n thenExit="+ thenExit)
 
+//               fix this!
     val noElse = if (thenExit != exit) thenExit.ordinal - thenEntry.ordinal <= 1
 		 else xord - thenEntry.ordinal <= 1
     //val noElse = m % 2 != 0
