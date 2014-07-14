@@ -48,6 +48,7 @@ package object ifs {
     if_OR_And_and ::
     if_or_And_AND ::
 //...12 more...
+    org_objectweb_asm_Frame_merge_cw_t_types_index ::
     Nil
 
 /*a(n)=

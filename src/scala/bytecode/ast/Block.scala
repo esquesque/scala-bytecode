@@ -53,6 +53,9 @@ class Block(val ordinal: Int,
     edges ++ HashSet(succs map (succ => this -> succ): _*)
   }
 
+  lazy val children: List[Block] =
+    cfg.dfst.children(ordinal).toList map (n => blocks(n.n))
+
   lazy val dominator: Option[Block] =
     cfg.dominators(ordinal) match {
       case self if self == bound => None
@@ -95,6 +98,9 @@ class Block(val ordinal: Int,
     predecessors foreach (_.body)
     (predecessors map (_.loadLocal(v))).headOption
   }
+
+  /*def mergeLocal(v: Int): Option[Local] = {
+  }*/
 
   def loadLocal(v: Int): Local = locals(v) match {
     case null if v == 0 && ! (info is 'static) =>
@@ -256,13 +262,12 @@ class Block(val ordinal: Int,
 
   lazy val body = {
     val range = (bound._1 until bound._2) ++
-    (cfg successors bound match {
-      case (x, _) :: _ => x :: Nil; case _ => 0 :: Nil
-    } )
-    val stackPreZeros = for (i <- 0 until range.length - 1
-			     if frames(range(i + 1)).getStackSize == 0)
-			yield range(i)
-    (stackPreZeros map mkstmt).toList
+		(cfg successors bound match {
+		  case (x, _) :: _ => x :: Nil; case _ => 0 :: Nil
+		} )
+    (for (i <- 0 until range.length - 1
+	  if frames(range(i + 1)).getStackSize == 0)
+     yield mkstmt(range(i))).toList
   }
 
   def out(ps: java.io.PrintStream, indent: Int) {

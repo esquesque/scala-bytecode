@@ -1,6 +1,7 @@
 package scala.bytecode.test
 
 object test_ifs extends Suite {
-  val transforms = Nil
+  import scala.bytecode._
+  val transforms = CollapseTernaryExprs :: AnchorFloatingStmts :: Nil
   val cases = ifs.cases
 }

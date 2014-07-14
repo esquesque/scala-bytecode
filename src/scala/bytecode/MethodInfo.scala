@@ -146,7 +146,7 @@ extends MemberInfo[MethodNode, ast.MethodDecl] {
     val size = bounds.length
 
     val edges: List[((Int, Int), (Int, Int))] =
-      bounds.map(b => predecessors(b._1) map (_ -> b)).flatten
+      (bounds map (b => predecessors(b._1) map (_ -> b))).flatten
 
     def predecessors(beg: Int): List[(Int, Int)] = preds(beg) match {
       case null => Nil

@@ -41,6 +41,20 @@ abstract class ControlFlowGraph(val method: MethodInfo) {
     blocks
   }
 
+  def undirected: ControlFlowGraph = new ControlFlowGraph(method) {
+    val cfg = ControlFlowGraph.this
+    val bounds = cfg.bounds
+    val edges = (bounds map (b => predecessors(b._1) map (_ -> b))).flatten
+
+    def predecessors(beg: Int) = cfg predecessors beg
+    def successors(end: Int) = cfg successors end
+
+    override def predecessors(b: (Int, Int)) =
+      predecessors(b._1) ++ successors(b._2)
+    override def successors(b: (Int, Int)) =
+      predecessors(b._1) ++ successors(b._2)
+  }
+
   type BracketList = Stack[(Int, Int)]
 
   case class Node(n: Int, b: (Int, Int), succs: List[(Int, Int)]) {
@@ -57,6 +71,8 @@ abstract class ControlFlowGraph(val method: MethodInfo) {
       case Some(parent) =>
 	if (parent.n == m) true else parent.isDescendantOf(t, m)
     }
+
+    override def toString = "node n="+ n +" b="+ b +" blist="+ blist
   }
 
   /* Vigdorchik
@@ -214,23 +230,24 @@ abstract class ControlFlowGraph(val method: MethodInfo) {
     def newClass: Int = { val c = curClass; curClass += 1; c }
 
     for (node <- tree.preorder.reverse) {
-      println(node)
       val hi_0 = min(backEdges.toSeq filter {
 	case (ord, _) if ord == node.n => true; case _ => false
       } map {
-	case (_, ord) => tree.post(ord).n//what is dfsnum?
+	case (_, ord) => tree.pre(ord).n//what is dfsnum?
       } )
       val children = tree children node.n
       val hi_1 = min(children map (_.hi))
       node.hi = min(hi_0 :: hi_1 :: Nil)
       val hichild = children find (_.hi == hi_1)
       val hi_2 = hichild match {
-	case None => 0
+	case None => println("***"+ children);0
 	case Some(hc) => min(children filter (_ != hc) map (_.hi))
       }
+      println("hi_0="+ hi_0 +" hi_1="+ hi_1 +" hi_2="+ hi_2)
+
       //compute bracketlist
       children foreach { c =>
-	node.blist = c.blist ++ node.blist
+	node.blist = node.blist ++ c.blist
       }
       cappingBackEdges foreach { d =>
 	if (d._2 == node.n && node.isAncestorOf(tree, d._1))
@@ -249,10 +266,13 @@ abstract class ControlFlowGraph(val method: MethodInfo) {
       }
       if (hi_2 < hi_0) {
 	//create capping backedge
-	val d = (node.n, hi_2)
+	val d = (node.n, tree.pre(hi_2).n)
+	println("capping backedge hi_2="+ hi_2 +" d="+ d)
 	node.blist push d
 	cappingBackEdges += d
       }
+
+      println(node)
 
       //determine class for edge from parent(n) to n
       if (node.n != 0) {
@@ -260,10 +280,10 @@ abstract class ControlFlowGraph(val method: MethodInfo) {
 	  case (from, to) => tree.parent(to).get.n == from
 	} ).get
 	val b = node.blist.top
-	if (! (bracketRecentSizes contains b))
-	  bracketRecentSizes(b) = 0
-	if (bracketRecentSizes(b) != node.blist.size) {
-	  bracketRecentSizes(b) = node.blist.size
+	val size = node.blist.size
+	if (! (bracketRecentSizes contains b)) bracketRecentSizes(b) = 0
+	if (bracketRecentSizes(b) != size) {
+	  bracketRecentSizes(b) = size
 	  bracketRecentClasses(b) = newClass
 	}
 	bracketClasses(e) = bracketRecentClasses(b)
@@ -353,8 +373,33 @@ abstract class ControlFlowGraph(val method: MethodInfo) {
 	  var run = p
 	  while (run != dominators(i)) {
 	    val j = bounds indexOf run
+	    /*
 	    dfs(j) += i
 	    run = dominators(if (dominators(j) == run) i else j)
+	    */
+	    if (dominators(j) != run) {
+	      dfs(j) += i
+	      run = dominators(j)
+	    } else run = dominators(i)
+	  }
+	}
+    }
+    dfs
+  }
+
+  lazy val dominanceFrontiers2: Array[BitSet] = {
+    val dfs = Array.fill(bounds.length)(BitSet.empty)
+    for (i <- 0 until bounds.length) {
+      val preds = predecessors(bounds(i))
+      if (preds.length > 1)
+	for (p <- preds) {
+	  var run = p
+	  while (run != dominators(i)) {
+	    val j = bounds indexOf run
+	    if (dominators(j) != run) {
+	      dfs(j) += i
+	      run = dominators(j)
+	    } else run = dominators(i)
 	  }
 	}
     }
