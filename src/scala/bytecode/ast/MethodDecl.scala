@@ -209,14 +209,18 @@ class MethodDecl(val modifiers: List[Symbol],
 
       val elseStruct = struct(elseEntry, Some(elseExit))
 
-      val elseTrailing = if ((elseEntry.dominated contains elseExit)) {
-	if (elseEntry.dominanceFrontier equals elseExit.dominanceFrontier) {
-	  if (entry.dominanceFrontier contains elseExit) Some(elseExit) else None
-	} else (elseEntry.dominanceFrontier intersect elseExit.dominanceFrontier).headOption
-      } else elseStruct._2
+      val elseTrailing =
+        if ((elseEntry.dominated contains elseExit)) {
+	  if (elseEntry.dominanceFrontier equals elseExit.dominanceFrontier) {
+	    if (entry.dominanceFrontier contains elseExit) Some(elseExit) else None
+	  } else (elseEntry.dominanceFrontier intersect elseExit.dominanceFrontier).headOption
+	} else elseStruct._2
 
       debug("elseTrailing=")
       elseTrailing foreach (_.debug(System.out, debugIndent))
+
+      debug("...=")
+      elseStruct._2 foreach println
 
       (If(condx, Then(thenStruct._1), Else(elseStruct._1)), elseTrailing)
     }

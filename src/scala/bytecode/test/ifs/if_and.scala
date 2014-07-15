@@ -21,7 +21,10 @@ object if_and extends scala.bytecode.test.ASTCase {
   }
 
   val test: Test = {
-    case Exec(If(And(True(_), True(_)), _) :: _) => true
+    case Exec(If(And(True(_), True(_)), _) ::
+	      Label(_) ::
+	      Return(_) ::
+	      Nil) => true
     case tree => false
   }
 }

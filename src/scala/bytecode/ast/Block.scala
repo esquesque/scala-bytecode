@@ -45,17 +45,21 @@ class Block(val ordinal: Int,
   lazy val edgesOut: List[(Block, EdgeKind)] = successors map (succ =>
     (succ, cfg.dfst.edgeKinds(ordinal -> succ.ordinal)))
 
-  def span(to: Block): Set[(Block, Block)] = {
+/*  def span(to: Block): Set[(Block, Block)] = {
     val succs = successors filter (_.ordinal <= to.ordinal)
     val edges =
       if (succs.isEmpty) HashSet.empty
       else succs map (_ span to) reduce (_ ++ _)
     edges ++ HashSet(succs map (succ => this -> succ): _*)
-  }
+  }*/
+
+  lazy val parent: Option[Block] =
+    cfg.dfst.parents(ordinal) map (n => blocks(n.n))
 
   lazy val children: List[Block] =
     cfg.dfst.children(ordinal).toList map (n => blocks(n.n))
 
+  /* excludes self-domination by entry block */
   lazy val dominator: Option[Block] =
     cfg.dominators(ordinal) match {
       case self if self == bound => None
@@ -93,24 +97,22 @@ class Block(val ordinal: Int,
     loc
   }
 
-  //severe TODO
+  /*bad bad bad
   def mergePredLocal(v: Int): Option[Local] = {
     predecessors foreach (_.body)
     (predecessors map (_.loadLocal(v))).headOption
-  }
-
-  /*def mergeLocal(v: Int): Option[Local] = {
   }*/
+
+  def mergeParentLocal(v: Int): Option[Local] = parent map (_ loadLocal v)
 
   def loadLocal(v: Int): Local = locals(v) match {
     case null if v == 0 && ! (info is 'static) =>
       local(0, 'this, info.owner.desc)
     case null => info.arguments.find(_._1 == v) match {
       case Some((_, desc)) => local(v, Symbol("arg_"+ v), desc)
-      case None => mergePredLocal(v) match {
+      case None => mergeParentLocal(v) match {
 	case Some(loc) =>
-	  locals(v) = loc
-	  loc
+	  locals(v) = loc; loc
 	case None =>
 	  throw new RuntimeException("block_"+ ordinal +" var_"+ v +" is unavailable")
       }

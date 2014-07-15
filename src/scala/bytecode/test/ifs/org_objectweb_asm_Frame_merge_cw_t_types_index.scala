@@ -259,7 +259,7 @@ extends scala.bytecode.test.ASTCase {
 		      Nil)) ::
 	      Label(_) ::
 	      Return(_) ::
-	      _) => true
+	      Nil) => true
     case tree => false
   }
 }

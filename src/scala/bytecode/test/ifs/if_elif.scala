@@ -30,7 +30,10 @@ object if_elif extends scala.bytecode.test.ASTCase {
 		 Else(Label(_) ::
 		      If(True(_),
 			 Then(Void(Method(_, "baz", _, _, _)) :: _)) ::
-		      Nil)) :: _) => true
+		      Nil)) ::
+	      Label(_) ::
+	      Return(_) ::
+	      Nil) => true
     case tree => false
   }
 }

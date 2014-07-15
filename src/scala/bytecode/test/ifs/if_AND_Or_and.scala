@@ -29,7 +29,10 @@ object if_AND_Or_and extends scala.bytecode.test.ASTCase {
   }
 
   val test: Test = {
-    case Exec(If(And(Or(And(True(_), True(_)), True(_)), True(_)), _) :: _) => true
+    case Exec(If(And(Or(And(True(_), True(_)), True(_)), True(_)), _) ::
+	      Label(_) ::
+	      Return(_) ::
+	      Nil) => true
     case tree => false
   }
 }

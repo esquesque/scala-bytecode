@@ -89,10 +89,11 @@ abstract class ControlFlowGraph(val method: MethodInfo) {
     def postorder: IndexedSeq[Node] = (0 until size) map (post)
     def parents: IndexedSeq[Option[Node]] = (0 until size) map (parent)
 
-    def children(n: Int) = preorder filter (node => parent(node.n) match {
-      case None => false
-      case Some(p) => p.n == n
-    } )
+    def children(n: Int): IndexedSeq[Node] = preorder filter { node =>
+      parent(node.n) match {
+	case None => false; case Some(p) => p.n == n
+      }
+    }
   }
 
   lazy val dfst: Tree = {
