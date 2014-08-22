@@ -42,14 +42,16 @@ trait Suite {
 	print(str(len))
       }
       out foreach (_.reset)
-      result
+      (method.name, result)
     }
-    System.exit(if (results reduce (_ & _)) {
+    val failed = results filter (! _._2)
+    System.exit(if (failed.isEmpty) {
       println(">"+ results.length +" OK")
       0
     } else {
-      println(">"+ (results filter (_ == true)).length +" PASSED")
-      println(">"+ (results filter (! _)).length +" FAILED")
+      println(">"+ (results.length - failed.length) +" PASSED")
+      println(">"+ failed.length +" FAILED:")
+      println(">>"+ (failed map (_._1) mkString ", "))
       1
     } )
   }

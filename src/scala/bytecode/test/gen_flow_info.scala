@@ -5,7 +5,7 @@ import scala.bytecode.ast.Block
 
 object gen_flow_info {
   def main(args: Array[String]) {
-    val cxt = Cxt.default
+/*    val cxt = Cxt.default
     val x = cxt.resolve(new java.io.File("scratch/simple_ifs.class"))
     def abbrBlocks(bs: List[Block]): String =
       bs.map(_.ordinal).mkString("[", ", ", "]")
@@ -26,6 +26,6 @@ object gen_flow_info {
 	println(" dom_exiters=: "+ abbrBlocks(block.dominanceLost))
       }
       println()
-    }
+    }*/
   }
 }

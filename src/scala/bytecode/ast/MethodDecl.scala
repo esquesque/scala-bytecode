@@ -28,57 +28,55 @@ class MethodDecl(val modifiers: List[Symbol],
 		 val thrown: List[String],
 		 val tryCatches: List[TryCatch],
 		 val blocks: List[Block]) extends Exec {
-  val returnType: Type = Type.getReturnType(desc)
   val body: List[Stmt] = structureBody(blocks.head)
+  val returnType: Type = Type.getReturnType(desc)
 
   var debugIndent: Int = 0
   def debug(str: String) { println((" "* debugIndent) + str) }
 
-  def controlExit(entry: Block): Option[Block] = entry.successors match {
-    case Nil => None
-    case succs => (entry.dominated diff succs) match {
-      case Nil => succs.lastOption
-      case diff => diff.headOption
-    }
-  }
+  def controlExit(entry: Block): Option[Block] = entry.controlExit
 
   def structureBody(entry: Block): List[Stmt] = {
-    val exit = controlExit(entry)
+    debug("*structureBody*")
+    val exit = entry.controlExit
     struct(entry, exit) match {
-      case (stmts, Some(next)) =>
-	debug("*structureBody* next=")
-	next.debug(System.out, 2)
-	debug("exit=")
-	exit.get.debug(System.out, 2)
-	stmts ++ structureBody(next)
+      case (stmts, Some(next)) => stmts ++ structureBody(next)
       case (stmts, None) => stmts
     }
   }
 
   def struct(entry: Block, exit: Option[Block]): (List[Stmt], Option[Block]) = {
-    debugIndent += 2
-
-    debug("struct entry=")
-    entry.debug(System.out, debugIndent)
-    debug("struct exit=")
-    exit foreach (_.debug(System.out, debugIndent))
+    { debugIndent += 2
+      debug("*struct* entry=")
+      entry.debug(System.out, debugIndent)
+      debug("*struct* exit=")
+      exit foreach (_.debug(System.out, debugIndent))
+    }
 
     val enteringTryCatches = tryCatches filter (_._1 == entry.bound._1)
 
     val ret = entry match {
       case _ if enteringTryCatches.nonEmpty =>
-        (structTryCatch(entry, exit.get, enteringTryCatches) :: Nil, None)
+        (structTryCatch(entry,
+			exit.get,
+			enteringTryCatches) :: Nil, None)
       case IfBlock(_, init, cond) =>
 	structIf(entry, exit.get, cond) match {
 	  case (stmt, None) => (init :+ stmt, None)
 	  case (stmt, Some(trailing)) =>
+	    { debug("*struct* trailing=")
+	      trailing.debug(System.out, debugIndent)
+	    }
 	    struct(trailing, controlExit(trailing)) match {
 	      case (trailingStmts, nextTrailing) =>
+		{ debug("*struct* nextTrailing=")
+		  nextTrailing foreach (_.debug(System.out, debugIndent))
+	        }
 		if ((entry.dominanceFrontier intersect trailing.dominanceFrontier).nonEmpty) {
-		  println("concat trailing " + trailing)
+		  debug("*struct* CONCAT trailing")
 		  ((init :+ stmt) ++ trailingStmts, nextTrailing)
 		} else {
-		  println("drop trailing " + trailing)
+		  debug("*struct* PASS trailing")
 		  (init :+ stmt, Some(trailing))
 		}
 	    }
@@ -119,42 +117,49 @@ class MethodDecl(val modifiers: List[Symbol],
     val nord = entry.ordinal
     val xord = exit.ordinal
     val nBlocks = xord - nord
-    val nDomRet = (entry.dominated.init filter (_.successors.isEmpty)).length
+    val nDomRet = entry.immediatelyDominated match {
+      case Nil => 0
+      case domd => (domd.init filter (_.successors.isEmpty)).length
+    }
     val subseqBlocks = (((nord + 1) until xord) map blocks).toList
     val ifBlocks = (subseqBlocks takeWhile {
       case IfBlock(block, _, _) =>
-	! (block.dominates &&
-	   (block.dominated.init exists (_.successors.isEmpty)))
+	! (block.immediatelyDominated.nonEmpty &&
+	   (block.immediatelyDominated.init exists (_.successors.isEmpty)))
       case _ => false
     } ) match {
       case Nil => Nil
       case blocks =>
 	val idx = ((entry :: blocks) zip blocks) indexWhere {
 	  case (blk0, blk1) =>
-	    println(blk0.ordinal +"... exit "+ controlExit(blk0))
-	    println(blk1.ordinal +"... exit "+ controlExit(blk1))
-	    ! ((blk0.successors intersect blk1.dominanceFrontier).nonEmpty &&
-	       (blk1.dominanceFrontier contains controlExit(blk0).get))
+	    println(blk0.ordinal +"... exit "+ blk0.controlExit)
+	    println(blk1.ordinal +"... exit "+ blk1.controlExit)
+	    //! (blk0.immediatelyDominated contains blk1.controlExit)
+	    (blk0.successors intersect blk1.successors).isEmpty
+	    /*! ((blk0.successors intersect blk1.dominanceFrontier).nonEmpty &&
+	       (blk1.dominanceFrontier contains controlExit(blk0).get))*/
 	    //(blk0.successors intersect blk1.successors).isEmpty
 	    //blk0.dominanceFrontier.length == blk1.dominanceFrontier.length
 	}
 	if (idx < 0) blocks else blocks take idx
     }
+
     val lastIf = ifBlocks.lastOption getOrElse entry
     val thenEntry = blocks(nord + 1 + ifBlocks.length)
     val condx = combConds(entry, cond, ifBlocks, thenEntry)
     val thenExit = controlExit(lastIf).get
-    debug("structIf #"+ nord +"-#"+ xord)
-    debug("nBlocks="+ nBlocks)
-    debug("nDomRet="+ nDomRet)
-    debug("ifBlocks=")
-    ifBlocks foreach (_.debug(System.out, debugIndent))
-    debug("thenEntry=")
+
+    debug("*structIf* #"+ nord +"-#"+ xord)
+    //debug("********** nBlocks="+ nBlocks)
+    //debug("********** nDomRet="+ nDomRet)
+    debug("*structIf* ifBlocks=")
+    (entry :: ifBlocks) foreach (_.debug(System.out, debugIndent))
+    debug("*structIf* thenEntry=")
     thenEntry.debug(System.out, debugIndent)
-    debug("thenExit=")
+    debug("*structIf* thenExit=")
     thenExit.debug(System.out, debugIndent)
-    debug("thenExitExit=")
-    controlExit(thenExit) foreach (_.debug(System.out, debugIndent))
+    //debug("********** thenExitExit=")
+    //controlExit(thenExit) foreach (_.debug(System.out, debugIndent))
 
     val thenStruct = struct(thenEntry, Some(thenExit))
     val trailing = thenStruct match {
@@ -162,7 +167,7 @@ class MethodDecl(val modifiers: List[Symbol],
       case (_, Some(t)) => controlExit(t)
     }
 
-    debug("trailing=")
+    debug("*structIf* trailing=")
     trailing foreach (_.debug(System.out, debugIndent))
 
     /*val ifOnly = controlExit(thenExit) match {
@@ -202,27 +207,61 @@ class MethodDecl(val modifiers: List[Symbol],
       val elseEntry = trailing.get
       val elseExit = controlExit(elseEntry).get
 
-      debug("elseEntry=")
+      debug("*structIf* elseEntry=")
       elseEntry.debug(System.out, debugIndent)
-      debug("elseExit=")
+      debug("*structIf* elseExit=")
       elseExit.debug(System.out, debugIndent)
 
       val elseStruct = struct(elseEntry, Some(elseExit))
 
-      val elseTrailing =
-        if ((elseEntry.dominated contains elseExit)) {
-	  if (elseEntry.dominanceFrontier equals elseExit.dominanceFrontier) {
-	    if (entry.dominanceFrontier contains elseExit) Some(elseExit) else None
-	  } else (elseEntry.dominanceFrontier intersect elseExit.dominanceFrontier).headOption
-	} else elseStruct._2
+/*      def f(b: Block, ex: Block): Boolean = b.immediateDominator match {
+	case None => true
+	case Some(idom) =>
+	  val idomd = idom.immediatelyDominated
+	  if (((idomd contains ex) && idomd.init.last == b) || idomd.last == b)
+	    f(idom, ex)
+	  else false
+      }*/
 
-      debug("elseTrailing=")
+/*      def g(b: Block, ex: Block): Boolean =
+	if (b.immediatelyDominated contains ex) true
+
+      println(f(entry, elseExit))*/
+
+      println("~~~~~"+ ((lastIf.dominators diff elseEntry.dominators) ++
+			(elseEntry.dominators diff lastIf.dominators)))
+
+      val elseTrailing =
+	if (elseExit == exit) elseStruct._2 else Some(elseExit)
+	  //if ((elseExit.dominators contains entry))
+	/*((elseExit.dominators diff entry.dominators) ++
+	 (entry.dominators diff elseExit.dominators)) match {
+	   case Nil => Some(elseExit)
+	   case head :: Nil if head == entry => Some(elseExit)
+/*	   case head :: Nil if entry.immediateDominator.isDefined &&
+			       entry.immediateDominator.get == head =>
+				 Some(elseExit)*/
+	   case _ => elseStruct._2
+	}*/
+
+/*      val elseTrailing = if (elseEntry.immediatelyDominated.nonEmpty) {
+	if (exit == elseEntry)
+	  Some(elseExit) else elseStruct._2
+      } else if (exit == elseExit ||
+		 thenExit == elseExit) {
+	Some(elseExit)
+      } else elseStruct._2*/
+
+      debug("*structIf* elseTrailing=")
       elseTrailing foreach (_.debug(System.out, debugIndent))
 
-      debug("...=")
+      debug("*structIf* ...=")
       elseStruct._2 foreach println
 
-      (If(condx, Then(thenStruct._1), Else(elseStruct._1)), elseTrailing)
+      (If(condx,
+	  Then(thenStruct._1),
+	  Else(elseStruct._1)),
+       elseTrailing)
     }
 
     debugIndent -= 2
@@ -238,16 +277,16 @@ class MethodDecl(val modifiers: List[Symbol],
     case IfBlock(next, init, cond1) :: rest =>
       val succs = entry.successors
       val sect = succs intersect next.successors
-      val discont = next.dominated match {
+      /*val discont = next.immediatelyDominated match {
 	case IfBlock(sub, _, _) :: _ => next.ordinal + 1 != sub.ordinal
 	case _ => false
-      }
+      }*/
       //LHA
       if (sect exists (_.ordinal < thenEntry.ordinal))
 	combConds(next,
 		  if (succs contains thenEntry) Or(cond, cond1)
-		  else And(cond.invert, if (discont) cond1.invert
-					else cond1), rest, thenEntry)
+		  else And(cond.invert, /*if (discont) cond1.invert
+					else cond1*/cond1), rest, thenEntry)
       //RHA
       else
 	if (succs contains thenEntry)
@@ -305,7 +344,7 @@ object MethodDecl {
     val analyzer = method.cfgAnalyzer(MethodInfo.sourceInterpreter)
     val frames = analyzer.analyze(method.owner.name, method.node)
     val cfg = method.cfg
-    val blocks = cfg.mkblocks(frames)
+    val blocks = cfg mkblocks frames
     val entry = blocks.head
     val argLocals = method.arguments map {
       case (v, desc) => entry.local(v, Symbol("arg_"+ v), desc)

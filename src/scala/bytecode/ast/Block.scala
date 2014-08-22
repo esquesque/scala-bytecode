@@ -35,51 +35,83 @@ class Block(val ordinal: Int,
 
   lazy val predecessors: List[Block] =
     (cfg predecessors bound) map (pred => blocks(cfg.bounds indexOf pred))
-
   lazy val successors: List[Block] =
     (cfg successors bound) map (succ => blocks(cfg.bounds indexOf succ))
 
   lazy val edgesIn: List[(Block, EdgeKind)] = predecessors map (pred =>
     (pred, cfg.dfst.edgeKinds(pred.ordinal -> ordinal)))
-
   lazy val edgesOut: List[(Block, EdgeKind)] = successors map (succ =>
     (succ, cfg.dfst.edgeKinds(ordinal -> succ.ordinal)))
 
-/*  def span(to: Block): Set[(Block, Block)] = {
-    val succs = successors filter (_.ordinal <= to.ordinal)
-    val edges =
-      if (succs.isEmpty) HashSet.empty
-      else succs map (_ span to) reduce (_ ++ _)
-    edges ++ HashSet(succs map (succ => this -> succ): _*)
-  }*/
-
   lazy val parent: Option[Block] =
     cfg.dfst.parents(ordinal) map (n => blocks(n.n))
-
   lazy val children: List[Block] =
     cfg.dfst.children(ordinal).toList map (n => blocks(n.n))
 
   /* excludes self-domination by entry block */
-  lazy val dominator: Option[Block] =
-    cfg.dominators(ordinal) match {
+  lazy val immediateDominator: Option[Block] =
+    (cfg immediateDominators ordinal) match {
       case self if self == bound => None
-      case dom => Some(blocks(cfg.bounds indexOf dom))
+      case idom => Some(blocks(cfg.bounds indexOf idom))
     }
 
+  lazy val dominators: List[Block] = immediateDominator match {
+    case None => Nil
+    case Some(idom) => idom.dominators :+ idom
+  }
+
   /* excludes self-domination by entry block */
-  lazy val dominated: List[Block] =
-    cfg.dominatedBy(ordinal).toList match {
+  lazy val immediatelyDominated: List[Block] =
+    (cfg immediatelyDominatedBy ordinal).toList match {
       case self :: rest if self == ordinal => rest map blocks
       case subs => subs map blocks
     }
 
-  lazy val dominates: Boolean = dominated.length > 0
+  lazy val singleExitReverseCFG = cfg.singleExitReverse
+  lazy val serOrdinal: Int = singleExitReverseCFG.bounds indexWhere (_ == bound)
+
+  lazy val immediatePostdominator: Option[Block] =
+    (singleExitReverseCFG immediateDominators serOrdinal) match {
+      case self if self == bound => None
+      case (-1, -1) => None
+      case ipdom => Some(blocks(cfg.bounds indexOf ipdom))
+    }
+
+  lazy val postdominators: List[Block] = immediatePostdominator match {
+    case None => Nil
+    case Some(ipdom) => ipdom.postdominators :+ ipdom
+  }
+
+  /* excludes self-domination by exit block */
+/*  lazy val immediatelyPostdominated: List[Block] =
+    (singleExitReverseCFG immediatelyDominatedBy serOrdinal).toList match {
+      case self :: rest if self == ordinal => rest map blocks
+      case ipdomd => ipdomd map blocks
+    }*/
 
   lazy val dominanceFrontier: List[Block] =
-    info.cfg.dominanceFrontiers(ordinal).toList map blocks
+    (info.cfg dominanceFrontiers ordinal).toList map blocks
 
-  lazy val dominanceLost: List[Block] =
-    info.cfg.dominanceLostBy(ordinal).toList map blocks
+  lazy val ultimatelyDominated: Block =
+    if (immediatelyDominated.isEmpty) this
+    else immediatelyDominated.last.ultimatelyDominated
+
+  lazy val controlExit: Option[Block] =
+    immediatePostdominator match {
+      case None => immediatelyDominated.lastOption
+      case ipdom => ipdom
+    }
+/*
+    if (successors.isEmpty) None
+    else (immediatelyDominated diff successors) ++
+	 (successors diff immediatelyDominated) match {
+	   case Nil => successors.lastOption
+	   case exits => exits.lastOption
+	 }*/
+/*	      immediatelyDominated.lastOption match {
+    case None => dominanceFrontier.lastOption
+    case dom => dom
+  }*/
 
   /* check ordinal and bound */
   def ordinallyPrecedes(subseq: Block*): Boolean = subseq.headOption match {
@@ -96,12 +128,6 @@ class Block(val ordinal: Int,
     locals(v) = loc
     loc
   }
-
-  /*bad bad bad
-  def mergePredLocal(v: Int): Option[Local] = {
-    predecessors foreach (_.body)
-    (predecessors map (_.loadLocal(v))).headOption
-  }*/
 
   def mergeParentLocal(v: Int): Option[Local] = parent map (_ loadLocal v)
 
@@ -281,18 +307,30 @@ class Block(val ordinal: Int,
   }
 
   def debug(ps: java.io.PrintStream, indent: Int) {
+    def ordlistr(pre: String, bs: List[Block], post: String): String =
+      if (bs.isEmpty) pre +"[]"+ post
+      else bs.map(_.ordinal).mkString(pre +"[#", ", #", "]"+ post)
     ps append " "* indent
     ps append "//"
     ps append toString
-    ps append predecessors.map(_.ordinal).mkString(" [#", ", #", "]-->*-->")
-    ps append successors.map(_.ordinal).mkString("[#", ", #", "] eks=")
-    val dfst = cfg.dfst
+    ps append ordlistr(" ", predecessors, "-->*-->")
+    //ps append ordlistr("", successors, " eks=")
+    ps append ordlistr("", successors, " idom=")
+/*    val dfst = cfg.dfst
     ps append successors.map(s =>
-      dfst.edgeKinds(ordinal -> s.ordinal)).mkString(",")
-    ps append " domd="
-    ps append dominated.map(_.ordinal).mkString("[#", ", #", "] df=")
-    ps append dominanceFrontier.map(_.ordinal).mkString("[#", ", #", "] dl=")
-    ps append dominanceLost.map(_.ordinal).mkString("[#", ", #", "]")
+      dfst.edgeKinds(ordinal -> s.ordinal)).mkString("[", ", ", "] ")
+    ps append (dfst.pre(ordinal).n +"/"+ dfst.post(ordinal).n +" parent=")
+    parent foreach { p => ps append '#'; ps append (String valueOf p.ordinal) }
+    ps append ordlistr(" children=", children, " idom=")*/
+    immediateDominator foreach {
+      d => ps append '#'; ps append (String valueOf d.ordinal) }
+    ps append " ipdom="
+    immediatePostdominator foreach {
+      pd => ps append '#'; ps append (String valueOf pd.ordinal) }
+    ps append ordlistr(" doms=", dominators, "")
+    ps append ordlistr(" idomd=", immediatelyDominated, "")
+    ps append ordlistr(" df=", dominanceFrontier, " ctrl_exit=")
+    controlExit foreach { ce => ps append '#'; ps append (String valueOf ce.ordinal) }
     ps append '\n'
   }
 
@@ -311,7 +349,7 @@ class Block(val ordinal: Int,
   }
 
   override def equals(any: Any): Boolean = any match {
-    case block: Block => block.ordinal == ordinal && (block.bound equals bound)
+    case block: Block => (block.bound equals bound)
     case _ => false
   }
 }

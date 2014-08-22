@@ -48,9 +48,9 @@ object CollapseTernaryExprs extends MethodInfo.CFGTransform {
 	val ord = cfg.bounds indexOf bound
 	//println("!!!"+ bound)
 	val head = cfg.dominanceFrontiers(ord).toList match {
-	  case Nil => cfg.dominators(ord)
+	  case Nil => cfg.immediateDominators(ord)
 	  case df =>
-	    (df map cfg.dominators).head
+	    (df map cfg.immediateDominators).head
 	}
 	val domEndDepth =
 	  frames(head._2).getStackSize

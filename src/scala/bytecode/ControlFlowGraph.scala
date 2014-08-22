@@ -41,7 +41,26 @@ abstract class ControlFlowGraph(val method: MethodInfo) {
     blocks
   }
 
-  def undirected: ControlFlowGraph = new ControlFlowGraph(method) {
+  def singleExitReverse: ControlFlowGraph = new ControlFlowGraph(method) {
+    val cfg = ControlFlowGraph.this
+    val dummyExit: (Int, Int) = (-1, -1)
+    val bounds = dummyExit :: cfg.bounds.reverse
+    val exits: List[(Int, Int)] =
+      (cfg.bounds filter (b => (cfg successors b).isEmpty)).reverse
+    val edges = (bounds map (b => successors(b) map (b -> _))).flatten
+
+    def predecessors(beg: Int) = (cfg predecessors beg).reverse
+    def successors(end: Int) = (cfg successors end).reverse
+
+    override def predecessors(b: (Int, Int)): List[(Int, Int)] =
+      if (b == dummyExit) Nil
+      else if (successors(b._2).isEmpty) List(dummyExit)
+      else successors(b._2)
+    override def successors(b: (Int, Int)): List[(Int, Int)] =
+      if (b == dummyExit) exits else predecessors(b._1)
+  }
+
+/*  def undirected: ControlFlowGraph = new ControlFlowGraph(method) {
     val cfg = ControlFlowGraph.this
     val bounds = cfg.bounds
     val edges = (bounds map (b => predecessors(b._1) map (_ -> b))).flatten
@@ -53,7 +72,7 @@ abstract class ControlFlowGraph(val method: MethodInfo) {
       predecessors(b._1) ++ successors(b._2)
     override def successors(b: (Int, Int)) =
       predecessors(b._1) ++ successors(b._2)
-  }
+  }*/
 
   type BracketList = Stack[(Int, Int)]
 
@@ -97,6 +116,7 @@ abstract class ControlFlowGraph(val method: MethodInfo) {
   }
 
   lazy val dfst: Tree = {
+    println(bounds)
     val pre0 = Array.fill(bounds.length)(-1)
     val post0 = Array.fill(bounds.length)(-1)
     val pre1 = new Array[Node](bounds.length)
@@ -205,7 +225,9 @@ abstract class ControlFlowGraph(val method: MethodInfo) {
    * }
    */
 
-  def cycleEquiv: HashMap[(Int, Int), Int] = {
+  //it doesn't work
+
+/*  def cycleEquiv: HashMap[(Int, Int), Int] = {
     val cycleEquivClasses: HashMap[(Int, Int), Int] = HashMap.empty
     val bracketRecentSizes: HashMap[(Int, Int), Int] = HashMap.empty
     val bracketRecentClasses: HashMap[(Int, Int), Int] = HashMap.empty
@@ -296,24 +318,51 @@ abstract class ControlFlowGraph(val method: MethodInfo) {
     }
 
     bracketClasses
-  }
+  }*/
 
   /* Cooper, Harvey, Kennedy; Rice
    * A Simple, Fast Dominance Algorithm
    * www.hipersoft.rice.edu/grads/publications/dom14.pdf
    */
-  lazy val dominators: Array[(Int, Int)] = {
+  lazy val immediateDominators: Array[(Int, Int)] = {
     val tree = dfst
     val bs = bounds
     val rpo = tree.postorder.reverse
-    val rpons = rpo map (_.n)
+    //val rpons = rpo map (_.n)
     val rpobs = rpo map (_.b)
-    val doms = new Array[(Int, Int)](tree.size)
-    doms(0) = bs(0)
-    var c = true
+    val idoms = new Array[(Int, Int)](tree.size)
+    idoms(0) = bs(0)
+    var changed = true
+    while (changed) {
+      changed = false
+      for (n <- rpo.init) {
+	var idom: (Int, Int) = null
+	for (pred <- predecessors(n.b) if idoms(bs indexOf pred) != null) {
+	  if (idom == null)
+	    idom = pred
+	  else {
+	    var b1 = idom
+	    var b2 = pred
+	    while (b1 != b2) {
+	      while ((rpobs indexOf b1) < (rpobs indexOf b2))
+		b1 = idoms(bs indexOf b1)
+	      while ((rpobs indexOf b2) < (rpobs indexOf b1))
+		b2 = idoms(bs indexOf b2)
+	    }
+	    idom = b1
+	  }
+	}
+	if (idoms(n.n) != idom) {
+	  idoms(n.n) = idom
+	  changed = true
+	}
+      }
+    }
+    idoms
+
     //magick
     //this subfunction required quite a bit deviation from the pseudocode
-    def intersect(b1: (Int, Int), b2: (Int, Int)): (Int, Int) = {
+/*    def intersect(b1: (Int, Int), b2: (Int, Int)): (Int, Int) = {
       var f1 = rpobs indexOf b1
       var f2 = rpobs indexOf b2
       var lf = -1
@@ -332,14 +381,20 @@ abstract class ControlFlowGraph(val method: MethodInfo) {
 	lf = -1
       }
       bs(rpons(f1))
-    }
-    while (c) {
-      c = false
-      val proc = new Array[Boolean](tree.size)
-      proc(0) = true
-      for (n <- rpo.init) {
-	proc(n.n) = true
-	val preds = predecessors(n.b)
+      //////////////////////////////////////////////////////////////////////////
+      var idx1 = bounds indexOf b1
+      var idx2 = bounds indexOf b2
+      println("intersect "+ idx1 +", "+ idx2)
+      while ((tree post idx1).n != (tree post idx2).n) {
+	while ((tree post idx1).n < (tree post idx2).n)
+	  idx1 = bounds indexOf doms(idx1)
+	while ((tree post idx2).n < (tree post idx1).n)
+	  idx2 = bounds indexOf doms(idx2)
+      }
+      bounds(idx1)
+    }*/
+
+/*	val preds = predecessors(n.b)
 	var idom = preds find (p => proc(bs indexOf p)) getOrElse {
 	  if (preds.length == 0) {
 	    val tc = method.tryCatches.find(_._3 == n.b._1).get
@@ -348,71 +403,35 @@ abstract class ControlFlowGraph(val method: MethodInfo) {
 	}
 	for (p <- preds if !(p equals idom) && doms(bs indexOf p) != null) {
 	  idom = intersect(p, idom)
-	}
-	if (doms(n.n) != idom) {
-	  doms(n.n) = idom
-	  c = true
-	}
-      }
-    }
-    doms
+	}*/
   }
 
-  lazy val dominatedBy: Array[BitSet] = {
-    val subs = Array.fill(bounds.length)(BitSet.empty)
+  lazy val immediatelyDominatedBy: Array[BitSet] = {
+    val idomd = Array.fill(bounds.length)(BitSet.empty)
     for (i <- 0 until bounds.length)
-      subs(bounds indexOf dominators(i)) += i
-    subs
+      idomd(bounds indexOf immediateDominators(i)) += i
+    idomd
   }
 
   lazy val dominanceFrontiers: Array[BitSet] = {
     val dfs = Array.fill(bounds.length)(BitSet.empty)
-    for (i <- 0 until bounds.length) {
-      val preds = predecessors(bounds(i))
+    for (idx <- 0 until bounds.length) {
+      val preds = predecessors(bounds(idx))
       if (preds.length > 1)
-	for (p <- preds) {
-	  var run = p
-	  while (run != dominators(i)) {
-	    val j = bounds indexOf run
-	    /*
-	    dfs(j) += i
-	    run = dominators(if (dominators(j) == run) i else j)
-	    */
-	    if (dominators(j) != run) {
-	      dfs(j) += i
-	      run = dominators(j)
-	    } else run = dominators(i)
+	for (pred <- preds) {
+	  var run = pred
+	  while (run != immediateDominators(idx)) {
+	    val runIdx = bounds indexOf run
+	    dfs(runIdx) += idx
+	    run = immediateDominators(runIdx)
+
+	    /*if (dominators(runIdx) != run) {
+	      dfs(runIdx) += idx
+	      run = dominators(runIdx)
+	    } else run = dominators(idx)*/
 	  }
 	}
     }
     dfs
-  }
-
-  lazy val dominanceFrontiers2: Array[BitSet] = {
-    val dfs = Array.fill(bounds.length)(BitSet.empty)
-    for (i <- 0 until bounds.length) {
-      val preds = predecessors(bounds(i))
-      if (preds.length > 1)
-	for (p <- preds) {
-	  var run = p
-	  while (run != dominators(i)) {
-	    val j = bounds indexOf run
-	    if (dominators(j) != run) {
-	      dfs(j) += i
-	      run = dominators(j)
-	    } else run = dominators(i)
-	  }
-	}
-    }
-    dfs
-  }
-
-  lazy val dominanceLostBy: Array[BitSet] = {
-    val x = Array.fill(bounds.length)(BitSet.empty)
-    for (i <- 0 until bounds.length) {
-      val df = dominanceFrontiers(i)
-      df foreach (idx => x(idx) += i)
-    }
-    x
   }
 }
