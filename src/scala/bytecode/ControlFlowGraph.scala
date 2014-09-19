@@ -60,26 +60,7 @@ abstract class ControlFlowGraph(val method: MethodInfo) {
       if (b == dummyExit) exits else predecessors(b._1)
   }
 
-/*  def undirected: ControlFlowGraph = new ControlFlowGraph(method) {
-    val cfg = ControlFlowGraph.this
-    val bounds = cfg.bounds
-    val edges = (bounds map (b => predecessors(b._1) map (_ -> b))).flatten
-
-    def predecessors(beg: Int) = cfg predecessors beg
-    def successors(end: Int) = cfg successors end
-
-    override def predecessors(b: (Int, Int)) =
-      predecessors(b._1) ++ successors(b._2)
-    override def successors(b: (Int, Int)) =
-      predecessors(b._1) ++ successors(b._2)
-  }*/
-
-  type BracketList = Stack[(Int, Int)]
-
   case class Node(n: Int, b: (Int, Int), succs: List[(Int, Int)]) {
-    var hi: Int = 0
-    var blist: BracketList = new BracketList
-
     def isAncestorOf(t: Tree, m: Int): Boolean = (t parent m) match {
       case None => false
       case Some(parent) => if (parent.n == n) true else isAncestorOf(t, parent.n)
@@ -91,7 +72,7 @@ abstract class ControlFlowGraph(val method: MethodInfo) {
 	if (parent.n == m) true else parent.isDescendantOf(t, m)
     }
 
-    override def toString = "node n="+ n +" b="+ b +" blist="+ blist
+    override def toString = "node n="+ n +" b="+ b
   }
 
   /* Vigdorchik
@@ -169,157 +150,6 @@ abstract class ControlFlowGraph(val method: MethodInfo) {
     }
   }
 
-  /* Johnson, Pearson, Pingali; Cornell
-   * The Program Structure Tree: Computing Control Regions in Linear Time
-   * 
-   * Procedure CycleEquiv(G) {
-   *   #perform an undirected depth-first search
-   *   for each node n in reverse depth-first order {
-   *     #compute n.hi
-   *     #min returns infinity (i.e. N + 1) whenever set is empty.
-   *     hi_0 := min { t.dfstnum | (n, t) is a backedge };
-   *     hi_1 := min { c.hi | c is a child of n };
-   *     n.hi := min { hi_0, hi_1 } ;
-   *     hichild := any child c of n having c.hi = hi_1;
-   *     hi_2 := min { c.hi | c is a child of n other than hichild };
-   *
-   *     #compute bracketlist
-   *     n.blist := create();
-   *     for each child c of n {
-   *       n.blist := concat(c.blist, n.blist);
-   *     }
-   *     for each capping backedge d from a descendant of n to n {
-   *       delete(n.blist, d)
-   *     }
-   *     for each backedge b from a descendant of n to n {
-   *       delete(n.blist, b);
-   *       if b.class undefined {
-   *         b.class := new-class();
-   *       }
-   *     }
-   *     for each backedge e from n to an ancestor of n {
-   *       push(n.blist, e);
-   *     }
-   *     if hi_2 < hi_0 {
-   *       #create capping backedge
-   *       d := (n, node[hi_2]);
-   *       push(n.blist, d);
-   *     }
-   *
-   *     #determine class for edge from parent(n) to n
-   *     if n is not the root of dfs tree {
-   *       let e be the tree edge from parent(n) to n;
-   *       b := top(n.blist)
-   *       if b.recentSize != size(n.blist) {
-   *         b.recentSize := size(n.blist)
-   *         b.recentClass := new-class();
-   *       }
-   *       e.class := b.recentClass;
-   *
-   *       #check for e, b equivalence
-   *       if b.recentSize = 1 {
-   *         b.class := e.class
-   *       }
-   *     }
-   *   }
-   * }
-   */
-
-  //it doesn't work
-
-/*  def cycleEquiv: HashMap[(Int, Int), Int] = {
-    val cycleEquivClasses: HashMap[(Int, Int), Int] = HashMap.empty
-    val bracketRecentSizes: HashMap[(Int, Int), Int] = HashMap.empty
-    val bracketRecentClasses: HashMap[(Int, Int), Int] = HashMap.empty
-    val bracketClasses: HashMap[(Int, Int), Int] = HashMap.empty
-
-    val cappingBackEdges: MutableList[(Int, Int)] = MutableList.empty
-
-    val tree = dfst
-
-    val backEdges = tree.edgeKinds filter {
-      case (_, Back) => true; case _ => false
-    } map (_._1)
-
-    val treeEdges = tree.edgeKinds filter {
-      case (_, Tree) => true; case _ => false
-    } map (_._1)
-
-    def min(seq: Seq[Int]): Int = if (seq.isEmpty) tree.size else seq.min
-    def delete(n: Node, e: (Int, Int)) { n.blist = n.blist filter (_ != e) }
-
-    var curClass = 0
-
-    def newClass: Int = { val c = curClass; curClass += 1; c }
-
-    for (node <- tree.preorder.reverse) {
-      val hi_0 = min(backEdges.toSeq filter {
-	case (ord, _) if ord == node.n => true; case _ => false
-      } map {
-	case (_, ord) => tree.pre(ord).n//what is dfsnum?
-      } )
-      val children = tree children node.n
-      val hi_1 = min(children map (_.hi))
-      node.hi = min(hi_0 :: hi_1 :: Nil)
-      val hichild = children find (_.hi == hi_1)
-      val hi_2 = hichild match {
-	case None => println("***"+ children);0
-	case Some(hc) => min(children filter (_ != hc) map (_.hi))
-      }
-      println("hi_0="+ hi_0 +" hi_1="+ hi_1 +" hi_2="+ hi_2)
-
-      //compute bracketlist
-      children foreach { c =>
-	node.blist = node.blist ++ c.blist
-      }
-      cappingBackEdges foreach { d =>
-	if (d._2 == node.n && node.isAncestorOf(tree, d._1))
-          node.blist = node.blist filter (_ != d)
-      }
-      backEdges foreach { b =>
-	if (b._2 == node.n && node.isAncestorOf(tree, b._1)) {
-          node.blist = node.blist filter (_ != b)
-          if (! (bracketClasses contains b))
-            bracketClasses(b) = newClass
-	}
-      }
-      backEdges foreach { e =>
-	if (e._1 == node.n && node.isDescendantOf(tree, e._2))
-	  node.blist push e
-      }
-      if (hi_2 < hi_0) {
-	//create capping backedge
-	val d = (node.n, tree.pre(hi_2).n)
-	println("capping backedge hi_2="+ hi_2 +" d="+ d)
-	node.blist push d
-	cappingBackEdges += d
-      }
-
-      println(node)
-
-      //determine class for edge from parent(n) to n
-      if (node.n != 0) {
-	val e = (treeEdges find {
-	  case (from, to) => tree.parent(to).get.n == from
-	} ).get
-	val b = node.blist.top
-	val size = node.blist.size
-	if (! (bracketRecentSizes contains b)) bracketRecentSizes(b) = 0
-	if (bracketRecentSizes(b) != size) {
-	  bracketRecentSizes(b) = size
-	  bracketRecentClasses(b) = newClass
-	}
-	bracketClasses(e) = bracketRecentClasses(b)
-
-	//check for e,b equivalence
-	if (bracketRecentSizes(b) == 1)
-	  bracketClasses(b) = bracketClasses(e)
-      }
-    }
-
-    bracketClasses
-  }*/
-
   /* Cooper, Harvey, Kennedy; Rice
    * A Simple, Fast Dominance Algorithm
    * www.hipersoft.rice.edu/grads/publications/dom14.pdf
@@ -359,51 +189,6 @@ abstract class ControlFlowGraph(val method: MethodInfo) {
       }
     }
     idoms
-
-    //magick
-    //this subfunction required quite a bit deviation from the pseudocode
-/*    def intersect(b1: (Int, Int), b2: (Int, Int)): (Int, Int) = {
-      var f1 = rpobs indexOf b1
-      var f2 = rpobs indexOf b2
-      var lf = -1
-      while (f1 != f2) {
-	while (f1 < f2) {
-	  val f = if (doms(f1) == null) 0 else rpobs indexOf doms(f1)
-	  f1 = if (lf == f1) f2 else f
-	  lf = f
-	}
-	lf = -1
-	while (f2 < f1) {
-	  val f = if (doms(f2) == null) 0 else rpobs indexOf doms(f2)
-	  f2 = if (lf == f2) f1 else f
-	  lf = f
-	}
-	lf = -1
-      }
-      bs(rpons(f1))
-      //////////////////////////////////////////////////////////////////////////
-      var idx1 = bounds indexOf b1
-      var idx2 = bounds indexOf b2
-      println("intersect "+ idx1 +", "+ idx2)
-      while ((tree post idx1).n != (tree post idx2).n) {
-	while ((tree post idx1).n < (tree post idx2).n)
-	  idx1 = bounds indexOf doms(idx1)
-	while ((tree post idx2).n < (tree post idx1).n)
-	  idx2 = bounds indexOf doms(idx2)
-      }
-      bounds(idx1)
-    }*/
-
-/*	val preds = predecessors(n.b)
-	var idom = preds find (p => proc(bs indexOf p)) getOrElse {
-	  if (preds.length == 0) {
-	    val tc = method.tryCatches.find(_._3 == n.b._1).get
-	    bs.find(_._1 == tc._1).get
-	  } else preds(0)
-	}
-	for (p <- preds if !(p equals idom) && doms(bs indexOf p) != null) {
-	  idom = intersect(p, idom)
-	}*/
   }
 
   lazy val immediatelyDominatedBy: Array[BitSet] = {
@@ -424,11 +209,6 @@ abstract class ControlFlowGraph(val method: MethodInfo) {
 	    val runIdx = bounds indexOf run
 	    dfs(runIdx) += idx
 	    run = immediateDominators(runIdx)
-
-	    /*if (dominators(runIdx) != run) {
-	      dfs(runIdx) += idx
-	      run = dominators(runIdx)
-	    } else run = dominators(idx)*/
 	  }
 	}
     }

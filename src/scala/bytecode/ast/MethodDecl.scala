@@ -231,8 +231,10 @@ class MethodDecl(val modifiers: List[Symbol],
       println("~~~~~"+ ((lastIf.dominators diff elseEntry.dominators) ++
 			(elseEntry.dominators diff lastIf.dominators)))
 
+      val elseEntryJumps = (JumpBlock unapply elseEntry).isDefined
       val elseTrailing =
-	if (elseExit == exit) elseStruct._2 else Some(elseExit)
+	if (elseExit == exit && elseEntryJumps) elseStruct._2
+	else Some(elseExit)
 	  //if ((elseExit.dominators contains entry))
 	/*((elseExit.dominators diff entry.dominators) ++
 	 (entry.dominators diff elseExit.dominators)) match {

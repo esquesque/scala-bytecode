@@ -36,6 +36,14 @@ package object ast {
   val Zero = Push(0)
   val Null = Push(null)
 
+  object JumpBlock {
+    def unapply(block: Block): Option[Block] = block.body.last match {
+      case Goto(_, _) => Some(block)
+      case If(_, _) => Some(block)
+      case _ => None
+    }
+  }
+
   object IfBlock {
     def unapply(block: Block): Option[(Block, List[Stmt], Cond)] = {
       val body = block.body

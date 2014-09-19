@@ -82,12 +82,33 @@ class Block(val ordinal: Int,
     case Some(ipdom) => ipdom.postdominators :+ ipdom
   }
 
-  /* excludes self-domination by exit block */
-/*  lazy val immediatelyPostdominated: List[Block] =
-    (singleExitReverseCFG immediatelyDominatedBy serOrdinal).toList match {
-      case self :: rest if self == ordinal => rest map blocks
-      case ipdomd => ipdomd map blocks
-    }*/
+  def dominates(block: Block): Boolean =
+    if (block equals this) true else block.dominators contains this
+
+  def strictlyDominates(block: Block): Boolean =
+    if (block equals this) false else block.dominators contains this
+
+  def immediatelyDominates(block: Block): Boolean =
+    block.immediateDominator match {
+      case Some(idom) => idom equals this
+      case _ => false
+    }
+
+  def postdominates(block: Block): Boolean =
+    if (block == this) true else block.postdominators contains this
+
+  def strictlyPostdominates(block: Block): Boolean =
+    if (block == this) false else block.postdominators contains this
+
+  def immediatelyPostdominates(block: Block): Boolean =
+    block.immediatePostdominator match {
+      case Some(ipdom) => ipdom equals this
+      case _ => false
+    }
+
+/*  def isControlDependen//tOn(block: Block): Boolean =
+    (successors exists (block postdominates _)) &&
+    ! (block strictlyPostdominates this)*/
 
   lazy val dominanceFrontier: List[Block] =
     (info.cfg dominanceFrontiers ordinal).toList map blocks
@@ -138,7 +159,8 @@ class Block(val ordinal: Int,
       case Some((_, desc)) => local(v, Symbol("arg_"+ v), desc)
       case None => mergeParentLocal(v) match {
 	case Some(loc) =>
-	  locals(v) = loc; loc
+	  locals(v) = loc
+	  loc
 	case None =>
 	  throw new RuntimeException("block_"+ ordinal +" var_"+ v +" is unavailable")
       }
