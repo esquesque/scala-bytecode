@@ -18,5 +18,5 @@
 package scala.bytecode.ast
 
 case class Or(left: Cond, right: Cond) extends ShortCircuit("||") {
-  lazy val invert = And(left.invert, right)
+  lazy val invert = And(left.invert, right.invert)
 }

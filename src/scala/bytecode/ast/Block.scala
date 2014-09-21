@@ -351,8 +351,7 @@ class Block(val ordinal: Int,
       pd => ps append '#'; ps append (String valueOf pd.ordinal) }
     ps append ordlistr(" doms=", dominators, "")
     ps append ordlistr(" idomd=", immediatelyDominated, "")
-    ps append ordlistr(" df=", dominanceFrontier, " ctrl_exit=")
-    controlExit foreach { ce => ps append '#'; ps append (String valueOf ce.ordinal) }
+    ps append ordlistr(" df=", dominanceFrontier, "")
     ps append '\n'
   }
 
