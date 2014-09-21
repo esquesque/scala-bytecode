@@ -151,67 +151,67 @@ scala-bytecode
       val lbl15 = label()
       val lbl16 = label()
       insnList(
-//#0 0..7
+  //#0 0..7
         aload(2),
-      	iload(3),
+        iload(3),
         array.iload(),
-      	istore(4),
+        istore(4),
         iload(4),
         iload(1),
         if_icmpne(lbl0),
-//#1 7..9
+  //#1 7..9
         push(0),
         ireturn(),
-//#2 9..15
+  //#2 9..15
         lbl0,
         iload(1),
         push(268435455),
         iand(),
         push(16777221),
         if_icmpne(lbl2),
-//#3 15..18
+  //#3 15..18
         iload(4),
         push(16777221),
         if_icmpne(lbl1),
-//#4 18..20
+  //#4 18..20
         push(0),
         ireturn(),
-//#5 20..23
+  //#5 20..23
         lbl1,
         push(16777221),
         istore(1),
-//#6
+  //#6
         lbl2,
         iload(4),
         ifne(lbl3),
-//#7
+  //#7
         aload(2),
         iload(3),
         iload(1),
         array.istore(),
         push(1),
         ireturn(),
-//#8
+  //#8
         lbl3,
         iload(4),
         push(267386880),
         iand(),
         push(24117248),
         if_icmpeq(lbl4),
-//#9
+  //#9
         iload(4),
         push(-268435456),
         iand(),
         ifeq(lbl10),
-//#10
+  //#10
         lbl4,
         iload(1),
         push(16777221),
         if_icmpne(lbl5),
-//#11
+  //#11
         push(0),
         ireturn(),
-//#12
+  //#12
         lbl5,
         iload(1),
         push(-1048576),
@@ -220,13 +220,13 @@ scala-bytecode
         push(-1048576),
         iand(),
         if_icmpne(lbl7),
-//#13
+  //#13
         iload(4),
         push(267386880),
         iand(),
         push(24117248),
         if_icmpne(lbl6),
-//#14
+  //#14
         iload(1),
         push(-268435456),
         iand(),
@@ -243,7 +243,7 @@ scala-bytecode
         ior(),
         istore(5),
         goto(lbl15),
-//#15
+  //#15
         lbl6,
         push(24117248),
         aload(0),
@@ -252,19 +252,19 @@ scala-bytecode
         ior(),
         istore(5),
         goto(lbl15),
-//#16
+  //#16
         lbl7,
         iload(1),
         push(267386880),
         iand(),
         push(24117248),
         if_icmpeq(lbl8),
-//#17
+  //#17
         iload(1),
         push(-268435456),
         iand(),
         ifeq(lbl9),
-//#18
+  //#18
         lbl8,
         push(24117248),
         aload(0),
@@ -273,55 +273,55 @@ scala-bytecode
         ior(),
         istore(5),
         goto(lbl15),
-//#19
+  //#19
         lbl9,
         push(16777216),
         istore(5),
         goto(lbl15),
-//#20
+  //#20
         lbl10,
         iload(4),
         push(16777216),
         if_icmpne(lbl14),
-//#21
+  //#21
         iload(1),
         push(267386880),
         iand(),
         push(24117248),
         if_icmpeq(lbl11),
-//#22
+  //#22
         iload(1),
         push(-268435456),
         iand(),
         ifeq(lbl12),
-//#23
+  //#23
         lbl11,
         iload(1),
         goto(lbl13),
-//#24
+  //#24
         lbl12,
         push(16777216),
-//#25
+  //#25
         lbl13,
         istore(5),
         goto(lbl15),//201->208
-//#26
+  //#26
         lbl14,
         push(16777216),//204
         istore(5),
-//#27
+  //#27
         lbl15,//208
         iload(4),
         iload(5),
         if_icmpeq(lbl16),//212->222
-//#28
+  //#28
         aload(2),
         iload(3),
         iload(5),
         array.istore(),
         push(1),
         ireturn(),
-//#29
+  //#29
         lbl16,//222
         push(0),
         ireturn())
