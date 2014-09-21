@@ -19,31 +19,54 @@ scala-bytecode
 
   These are the main entrypoints to the library:
   ```scala
-  Cxt.resolve(node: ClassNode/
-              name: String/
-              bytes: Array[Byte]/
-              is: InputStream/
+  Cxt.default: Cxt
+  Cxt.resolve(node: ClassNode ~
+              name: String ~
+              bytes: Array[Byte] ~
+              is: InputStream ~
               f: File): ClassInfo
   Cxt.resolveDir(dir: File): List[ClassInfo]
   Cxt.resolveJar(jf: java.util.jar.JarFile): List[Either[ClassInfo, InputStream]]
   ```
 
   ClassInfo, MethodInfo, and FieldInfo are the main objects of analysis (ASM
-  wrappers) and translation into intermediate-representation (IR) and beyond (?)
+  wrappers) and translation into intermediate-representation (IR) and beyond.
+
+  Functions useful for code analysis are:
+  ```scala
+  MethodInfo.cfg: ControlFlowGraph
+  ControlFlowGraph.mkblocks(frames: Array[org.objectweb.asm.tree.analysis.Frame]): List[ast.Block]
+  ast.Block.predecessors: List[Block]
+  ast.Block.successors: List[Block]
+  ast.Block.edgesIn: List[(Block, EdgeKind)]
+  ast.Block.edgesOut: List[(Block, EdgeKind)]
+  ast.Block.parent: Option[Block]
+  ast.Block.children: List[Block]
+  ast.Block.immediateDominator: Option[Block]
+  ast.Block.dominators: List[Block]
+  ast.Block.immediatelyDominated: List[Block]
+  ast.Block.immediatePostdominator: Option[Block]
+  ast.Block.postdominators: List[Block]
+  ast.Block.dominates(block: Block): Boolean
+  ast.Block.strictlyDominates(block: Block): Boolean
+  ast.Block.immediatelyDominates(block: Block): Boolean
+  ast.Block.postdominates(block: Block): Boolean
+  ast.Block.strictlyPostdominates(block: Block): Boolean
+  ast.Block.immediatelyPostdominates(block: Block): Boolean
+  ast.Block.dominanceFrontier: List[Block]
+  Info.tree[Tree <: ast.AST]
+  ```
+
+  Descendants of the trait ast.AST are pattern-matchable case classes. See
+  contents of the test package for examples of what this looks like.
 
   Includes bytecode transforms essential for well-behaved IR:
 
-  *CollapseStackManipulations
-    *transforms dup stacks out into local store/loads
-
-  *CollapseTernaryExprs
-    *transforms ternary expression stacks out onto local store/loads
-
-  *AnchorFloatingStmts
-    *tares statements that are stranded in a non-0 stack
-
-  ControlFlowGraph contains a few procedural methods, which I am not proud of.
-  I think it works.
+  CollapseStackManipulations: transforms dup* stacks out into local store/loads
+  CollapseTernaryExprs: transforms ternary expression stacks out into stmts/
+                        local store/loads
+  AnchorFloatingStmts: tares statements that are "floating" in a non-0 stack and
+                       moves locals accordingly; use after CollapseTernaryExprs
 
 - - - -
 
@@ -84,16 +107,9 @@ scala-bytecode
   classDecl.out()//print Java-style IR
   ```
 
-  *Things that work:
-    *if short-circuit structuring
+  Things that work: if short-circuit structuring; if-else structuring
 
-  *Things that kind of work:
-    *proper else-if structuring
-
-  *Things that don't work (yet):
-    *try-catch-finally support
-
-  >while and for loop support
+  Things slated for development: loop support, try-catch-finally support
 
 - - - -
 
