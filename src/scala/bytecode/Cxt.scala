@@ -26,51 +26,60 @@ import java.io.{InputStream, File, FileInputStream}
 import java.util.jar.JarFile
 
 class Cxt {
-  val pkgClasses: MMap[String, MMap[String, ClassInfo]] = MMap.empty
+  type DefinedOrUndefined = Either[ClassInfo, ClassInfo]
+  import scala.{Right => Defined, Left => Undefined}
+  /* Resolved classes -- whether we have it or not.
+   * mmap(package -> mmap(className -> optional classInfo))
+   */
+  val pkgClasses: MMap[String, MMap[String, DefinedOrUndefined]] = MMap.empty
   val resourceStreams: MMap[String, InputStream] = MMap.empty
 
-  def classes(pkgName: String): List[ClassInfo] =
-    pkgClasses.getOrElse(pkgName, MMap.empty).values.toList
+  def classesIn(pkg: String): MMap[String, DefinedOrUndefined] =
+    pkgClasses.getOrElseUpdate(pkg, MMap.empty)
 
   def pkgs: List[Cxt.Pkg] = {
-    val pnt = Cxt.pkgNameTree(pkgClasses.keys.toSeq)
-    def mkpkg(name: String): Cxt.Pkg =
-      Cxt.Pkg(name, (pnt.getOrElse(name, Nil) map (sub =>
-	mkpkg(name +'/'+ sub))).toList, classes(name))
+    val pnt = Cxt pkgNameTree pkgClasses.keys.toSeq
+    def mkpkg(pkg: String): Cxt.Pkg =
+      Cxt.Pkg(pkg, (pnt.getOrElse(pkg, Nil) map (sub =>
+	mkpkg(pkg +'/'+ sub))).toList, classesIn(pkg).values.toList)
     val rootNames = pnt.keys filterNot (_ contains '/')
     (rootNames map mkpkg).toList
   }
 
-  def diff(other: ClassInfo, info: ClassInfo) {}
+  def lookup(qual: String): Option[ClassInfo] = {
+    val (pkg, name) = Cxt pkgName qual
+    (classesIn(pkg) get name) match {
+      case Some(Defined(info)) => Some(info)
+      case _ => None
+    }
+  }
+
+  def diff(other: ClassInfo, info: ClassInfo) {}//this would be cool but how do?
 
   def resolve(node: ClassNode): ClassInfo = {
-    val name = Cxt.name(node.name)
-    val pkg = Cxt.pkg(node.name)
+    val (pkg, name) = Cxt pkgName node.name
     val info = new ClassInfo(this, node)
-    pkgClasses.get(pkg) match {
-      case Some(classes) =>
-	if (classes contains name) diff(classes(name), info)
-        classes(name) = info
-      case None => pkgClasses(pkg) = MMap(name -> info)
+    val classes = classesIn(pkg)
+    (classes get name) match {
+      case Some(Defined(oldInfo)) =>
+	classes(name) = Defined(info)
+      case _ =>
+	classes(name) = Defined(info)
     }
     info
   }
 
   def resolve(qual: String): ClassInfo = {
-    val name = Cxt.name(qual)
-    val pkg = Cxt.pkg(qual)
-    pkgClasses.get(pkg) match {
-      case Some(classes) =>
-	classes.getOrElseUpdate(name, {
-	  val node = new ClassNode
-	  node.name = name
-	  new ClassInfo(this, node)
-	} )
+    val (pkg, name) = Cxt pkgName qual
+    val classes = classesIn(pkg)
+    (classes get name) match {
+      case Some(Defined(info)) => info
+      case Some(Undefined(info)) => info
       case None =>
 	val node = new ClassNode
 	node.name = name
 	val info = new ClassInfo(this, node)
-	pkgClasses(pkg) = MMap(name -> info)
+	classes(name) = Undefined(info)
 	info
     }
   }
@@ -100,7 +109,7 @@ class Cxt {
       else Nil)).flatten
 
   import scala.collection.JavaConversions._
-  def resolveJar(jf: java.util.jar.JarFile): List[Either[ClassInfo, InputStream]] =
+  def resolveJar(jf: JarFile): List[Either[ClassInfo, InputStream]] =
     (for (entry <- jf.entries) yield {
       val name = entry.getName
       if (name endsWith ".class") Left(resolve(jf.getInputStream(entry)))
@@ -110,10 +119,31 @@ class Cxt {
 	Right(stream)
       }
     } ).toList
+
+  def classLoader = new ClassLoader {
+    override def loadClass(name: String): Class[_] =
+      lookup(Cxt qual name) match {
+	case Some(info) =>
+	  val bytes = info.bytes
+	  defineClass(name, bytes, 0, bytes.length)
+	case _ =>
+	  try {
+	    findSystemClass(name)
+	  } catch {
+	    case _: Throwable => getClass.getClassLoader loadClass name
+	  }
+      }
+
+    override def getResourceAsStream(name: String): InputStream = {
+      (resourceStreams get name) getOrElse super.getResourceAsStream(name)
+    }
+  }
 }
 
 object Cxt {
-  case class Pkg(name: String, subpkgs: List[Pkg], classes: List[ClassInfo])
+  case class Pkg(name: String,
+		 subpkgs: List[Pkg],
+		 classes: List[Either[ClassInfo, ClassInfo]])
 
   val default: Cxt = new Cxt
 
@@ -159,13 +189,10 @@ object Cxt {
     pnt
   }
 
-  def pkg(qual: String): String = qual.lastIndexOf('/') match {
-    case -1 => ""
-    case ix => qual.substring(0, ix)
+  def pkgName(qual: String): (String, String) = qual.lastIndexOf('/') match {
+    case -1 => ("", qual)
+    case ix => (qual.substring(0, ix), qual.substring(ix + 1))
   }
 
-  def name(qual: String): String = qual.lastIndexOf('/') match {
-    case -1 => qual
-    case ix => qual.substring(ix + 1)
-  }
+  def qual(unqual: String): String = unqual.replace('.', '/')
 }
