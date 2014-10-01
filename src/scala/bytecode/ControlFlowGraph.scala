@@ -32,7 +32,7 @@ abstract class ControlFlowGraph(val method: MethodInfo) {
   def successors(b: (Int, Int)): List[(Int, Int)] = successors(b._2)
 
   def mkblocks(frames: Array[Frame]): List[Block] = {
-    var blocks: List[Block] = null
+    var blocks: List[Block] = null//required for forward reference
     val getblocks: () => List[Block] = () => blocks
     blocks = bounds.zipWithIndex map {
       case (bound, ord) =>

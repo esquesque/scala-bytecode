@@ -93,9 +93,9 @@ extends MemberInfo[MethodNode, ast.MethodDecl] {
 				   changes.maxLocals map (node.maxLocals -> _),
 				   Nil)//gotta convert InsnSpec=>InsnSpecRecord
     //before mutate
-    if (changes.maxStack.isDefined)  { node.maxStack = changes.maxStack.get }
+    if (changes.maxStack.isDefined)  { node.maxStack = changes.maxStack.get   }
     if (changes.maxLocals.isDefined) { node.maxLocals = changes.maxLocals.get }
-    if (changes.insnSpec.nonEmpty)   { instructions.mutate(changes.insnSpec) }
+    if (changes.insnSpec.nonEmpty)   { instructions.mutate(changes.insnSpec)  }
     record
   }
 
@@ -107,6 +107,18 @@ extends MemberInfo[MethodNode, ast.MethodDecl] {
 
   def abstractStack: List[MethodInfo.Record] =
     apply(CollapseStackManipulations, AnchorFloatingStmts)
+
+  private lazy val uniqueLocals: Array[Short] = new Array[Short](node.maxLocals)
+
+  def uniqueLocalId(prefix: String, v: Int): Symbol = {
+    val n = uniqueLocals(v)
+    uniqueLocals(v) = (n + 1).toShort
+    def suffix(m: Int, r: String): String = {
+      val d = ((m % 26) + 97).toChar
+      if (m < 26) r + d else suffix(m / 26, r + d)
+    }
+    Symbol(prefix + v + suffix(n, ""))
+  }
 
   private var preds: Array[Array[Int]] = null
   private var succs: Array[Array[Int]] = null

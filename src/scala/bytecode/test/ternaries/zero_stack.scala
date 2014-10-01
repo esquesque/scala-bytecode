@@ -26,7 +26,7 @@ object zero_stack extends scala.bytecode.test.ASTCase {
   val test: Test = {
     case Exec(If(Ne(_, _), Then(_), Else(_)) ::
 	      Label(_) ::
-	      Store(_, _) :: _) => true
+	      LocalStore(_, _) :: _) => true
     case _ => false
   }
 }

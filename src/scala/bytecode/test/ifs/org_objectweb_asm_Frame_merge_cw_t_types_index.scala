@@ -205,7 +205,7 @@ extends scala.bytecode.test.ASTCase {
   }
 
   val test: Test = {
-    case Exec(Store(_, _) ::
+    case Exec(LocalStore(_, _) ::
 	      If(_,
 		 Then(Return(_) ::
 		      Nil)) ::
@@ -215,7 +215,7 @@ extends scala.bytecode.test.ASTCase {
 			 Then(Return(_) ::
 			      Nil)) ::
 		      Label(_) ::
-		      Store(_, _) ::
+		      LocalStore(_, _) ::
 		      Nil)) ::
 	      Label(_) ::
 	      If(_,
@@ -231,28 +231,42 @@ extends scala.bytecode.test.ASTCase {
 		      Label(_) ::
 		      If(_,
 			 Then(If(_,
-				 Then(Store(_, _) ::
+				 Then(LocalStore(_, _) ::
 				      Goto(_, _) ::
 				      Nil),
 				 Else(Label(_) ::
-				      Store(_, _) ::
+				      LocalStore(_, _) ::
 				      Goto(_, _) ::
 				      Nil)) ::
 			      Nil),
 			 Else(Label(_) ::
 			      If(Or(_, _),
 				 Then(Label(_) ::
-				      Store(_, _) ::
+				      LocalStore(_, _) ::
 				      Goto(_, _) ::
 				      Nil),
 				 Else(Label(_) ::
-				      Store(_, _) ::
+				      LocalStore(_, _) ::
 				      Goto(_, _) ::
 				      Nil)) ::
 			      Nil)) ::
 		      Nil),
-		 Else(_)) ::
+		 Else(Label(_) ::
+		      If(_,
+			 Then(If(Or(_, _),
+				 Then(Label(_) ::
+				      LocalStore(_, _) ::
+				      Goto(_, _) :: Nil),
+				 Else(Label(_) ::
+				      LocalStore(_, _) :: Nil)) ::
+			      Label(_) ::
+			      LocalStore(_, Phi(_, _)) ::
+			      LocalStore(_, _) ::
+			      Goto(_, _) :: Nil),
+			 Else(Label(_) ::
+			      LocalStore(_, _) :: Nil)) :: Nil)) ::
 	      Label(_) ::
+	      LocalStore(_, Phi(_, _, _, _, _, _)) ::
 	      If(_,
 		 Then(ArrayStore(_, _, _) ::
 		      Return(_) ::

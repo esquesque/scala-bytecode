@@ -17,16 +17,4 @@
 
 package scala.bytecode.ast
 
-trait Store extends Stmt {
-  def ref: Expr
-  def expr: Expr
-
-  def out(ps: java.io.PrintStream, indent: Int) {
-    ps append " "* indent
-    ps append (ref show false)
-    ps append " = "
-    ps append (expr show false)
-    ps append ';'
-    ps.flush
-  }
-}
+case class RefStore(ref: Expr, expr: Expr) extends Store

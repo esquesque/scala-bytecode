@@ -109,14 +109,14 @@ class Cxt {
       else Nil)).flatten
 
   import scala.collection.JavaConversions._
-  def resolveJar(jf: JarFile): List[Either[ClassInfo, InputStream]] =
+  def resolveJar(jf: JarFile): List[Either[InputStream, ClassInfo]] =
     (for (entry <- jf.entries) yield {
       val name = entry.getName
-      if (name endsWith ".class") Left(resolve(jf.getInputStream(entry)))
+      if (name endsWith ".class") Right(resolve(jf.getInputStream(entry)))
       else {
 	val stream = jf.getInputStream(entry)
 	resourceStreams(name) = stream
-	Right(stream)
+	Left(stream)
       }
     } ).toList
 

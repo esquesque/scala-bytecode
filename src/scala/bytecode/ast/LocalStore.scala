@@ -17,11 +17,8 @@
 
 package scala.bytecode.ast
 
-trait Store extends Stmt {
-  def ref: Expr
-  def expr: Expr
-
-  def out(ps: java.io.PrintStream, indent: Int) {
+case class LocalStore(ref: Local, expr: Expr) extends Store {
+  override def out(ps: java.io.PrintStream, indent: Int) {
     ps append " "* indent
     ps append (ref show false)
     ps append " = "

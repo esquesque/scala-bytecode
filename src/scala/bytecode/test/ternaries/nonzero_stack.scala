@@ -29,7 +29,7 @@ object nonzero_stack extends scala.bytecode.test.ASTCase {
   }
 
   val test: Test = {
-    case Exec(Store(_, _) ::
+    case Exec(LocalStore(_, _) ::
 	      If(Ne(_, _), Then(_), Else(_)) ::
 	      Label(_) ::
 	      If(Ne(_, _), Then(_)) :: _) => true

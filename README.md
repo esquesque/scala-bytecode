@@ -131,6 +131,80 @@ scala-bytecode
     val maxStack = 5
     val maxLocals = 7
     val name = "org_objectweb_asm_Frame_merge_cw_t_types_index"
+
+    val test: Test = {
+      case Exec(LocalStore(_, _) ::
+	        If(_,
+		   Then(Return(_) ::
+		        Nil)) ::
+	        Label(_) ::
+	        If(_,
+		   Then(If(_,
+			   Then(Return(_) ::
+			        Nil)) ::
+		        Label(_) ::
+		        LocalStore(_, _) ::
+		        Nil)) ::
+	        Label(_) ::
+	        If(_,
+		   Then(ArrayStore(_, _, _) ::
+		        Return(_) ::
+		        Nil)) ::
+	        Label(_) ::
+	        If(Or(_, _),
+		   Then(Label(_) ::
+		        If(_,
+			   Then(Return(_) ::
+			        Nil)) ::
+		        Label(_) ::
+		        If(_,
+			   Then(If(_,
+				   Then(LocalStore(_, _) ::
+				        Goto(_, _) ::
+				        Nil),
+				   Else(Label(_) ::
+				        LocalStore(_, _) ::
+				        Goto(_, _) ::
+				        Nil)) ::
+			        Nil),
+			   Else(Label(_) ::
+			        If(Or(_, _),
+				   Then(Label(_) ::
+				        LocalStore(_, _) ::
+				        Goto(_, _) ::
+				        Nil),
+				   Else(Label(_) ::
+				        LocalStore(_, _) ::
+				        Goto(_, _) ::
+				        Nil)) ::
+			        Nil)) ::
+		        Nil),
+		   Else(Label(_) ::
+		        If(_,
+			   Then(If(Or(_, _),
+				   Then(Label(_) ::
+				        LocalStore(_, _) ::
+				        Goto(_, _) :: Nil),
+				   Else(Label(_) ::
+				        LocalStore(_, _) :: Nil)) ::
+			        Label(_) ::
+			        LocalStore(_, Phi(_, _)) ::
+			        LocalStore(_, _) ::
+			        Goto(_, _) :: Nil),
+			   Else(Label(_) ::
+			        LocalStore(_, _) :: Nil)) :: Nil)) ::
+	        Label(_) ::
+	        LocalStore(_, Phi(_, _, _, _, _, _)) ::
+	        If(_,
+		   Then(ArrayStore(_, _, _) ::
+		        Return(_) ::
+		        Nil)) ::
+	        Label(_) ::
+	        Return(_) ::
+	        Nil) => true
+      case tree => false
+    }
+
     val desc = "(Lorg/objectweb/asm/ClassWriter;I[II)Z"
     val insns = {
       val lbl0 = label()
@@ -325,65 +399,6 @@ scala-bytecode
         lbl16,//222
         push(0),
         ireturn())
-    }
-
-    val test: Test = {
-      case Exec(Store(_, _) ::
-                If(_,
-                   Then(Return(_) ::
-                        Nil)) ::
-                Label(_) ::
-                If(_,
-                   Then(If(_,
-                           Then(Return(_) ::
-                                Nil)) ::
-                        Label(_) ::
-                        Store(_, _) ::
-                        Nil)) ::
-                Label(_) ::
-                If(_,
-                   Then(ArrayStore(_, _, _) ::
-                        Return(_) ::
-                        Nil)) ::
-                Label(_) ::
-                If(Or(_, _),
-                   Then(Label(_) ::
-                        If(_,
-                           Then(Return(_) ::
-                                Nil)) ::
-                        Label(_) ::
-                        If(_,
-                           Then(If(_,
-                                   Then(Store(_, _) ::
-                                        Goto(_, _) ::
-                                        Nil),
-                                   Else(Label(_) ::
-                                        Store(_, _) ::
-                                        Goto(_, _) ::
-                                        Nil)) ::
-                                Nil),
-                           Else(Label(_) ::
-                                If(Or(_, _),
-                                   Then(Label(_) ::
-                                        Store(_, _) ::
-                                        Goto(_, _) ::
-                                        Nil),
-                                   Else(Label(_) ::
-                                        Store(_, _) ::
-                                        Goto(_, _) ::
-                                        Nil)) ::
-                                Nil)) ::
-                        Nil),
-                   Else(_)) ::
-                Label(_) ::
-                If(_,
-                   Then(ArrayStore(_, _, _) ::
-                        Return(_) ::
-                        Nil)) ::
-                Label(_) ::
-                Return(_) ::
-                Nil) => true
-      case tree => false
     }
   }
   ```

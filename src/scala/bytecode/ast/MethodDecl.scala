@@ -45,6 +45,27 @@ class MethodDecl(val modifiers: List[Symbol],
     }
   }
 
+  def insertPhiStores(entry: Block, stmts: List[Stmt]): List[Stmt] =
+    entry.immediatelyPostdominated match {
+      case Nil => stmts
+      case ipdomd =>
+	val localSet = (ipdomd map (_.liveLocals)).toSet.flatten
+	val localsByIdx = localSet groupBy (_.index) filter {
+	  case (_, locals) => locals.size > 1
+	}
+	val phiStores = (localsByIdx map {
+	  case (v, locals) =>
+	    val phi = Phi(locals.toSeq: _*)
+	    LocalStore(entry.mklocal(v, Symbol("var_"+ v), phi.desc), phi)
+	} ).toList
+        stmts.head match {
+	  case Label(_) =>
+	    (stmts.head :: phiStores) ++ stmts.tail
+	  case _ =>
+	    phiStores ++ stmts
+	}
+    }
+
   def struct(entry: Block, exit: Option[Block]): (List[Stmt], Option[Block]) = {
     { debugIndent += 2
       debug("*struct* entry=")
@@ -55,7 +76,7 @@ class MethodDecl(val modifiers: List[Symbol],
 
     val enteringTryCatches = tryCatches filter (_._1 == entry.bound._1)
 
-    val ret = entry match {
+    val (stmts, next) = entry match {
       case _ if enteringTryCatches.nonEmpty =>
         (structTryCatch(entry,
 			exit.get,
@@ -86,7 +107,7 @@ class MethodDecl(val modifiers: List[Symbol],
 
     { debugIndent -= 2 }
 
-    ret
+    (insertPhiStores(entry, stmts), next)
   }
 
   def structTryCatch(entry: Block, exit: Block,
@@ -282,7 +303,7 @@ object MethodDecl {
     val blocks = cfg mkblocks frames
     val entry = blocks.head
     val argLocals = method.arguments map {
-      case (v, desc) => entry.local(v, Symbol("arg_"+ v), desc)
+      case (v, desc) => entry.mklocal(v, Symbol("arg_"+ v), desc)
     }
     new MethodDecl(method.modifiers, method.name, method.desc,
 		   argLocals, method.thrown, method.tryCatches, blocks)

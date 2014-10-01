@@ -55,11 +55,6 @@ class Block(val ordinal: Int,
       case idom => Some(blocks(cfg.bounds indexOf idom))
     }
 
-  lazy val dominators: List[Block] = immediateDominator match {
-    case None => Nil
-    case Some(idom) => idom.dominators :+ idom
-  }
-
   /* excludes self-domination by entry block */
   lazy val immediatelyDominated: List[Block] =
     (cfg immediatelyDominatedBy ordinal).toList match {
@@ -67,15 +62,26 @@ class Block(val ordinal: Int,
       case subs => subs map blocks
     }
 
-  lazy val singleExitReverseCFG = cfg.singleExitReverse
-  lazy val serOrdinal: Int = singleExitReverseCFG.bounds indexWhere (_ == bound)
+  lazy val dominators: List[Block] = immediateDominator match {
+    case None => Nil
+    case Some(idom) => idom.dominators :+ idom
+  }
+
+  //
+
+  lazy val seRevCFG: ControlFlowGraph = cfg.singleExitReverse
+  lazy val seRevOrd: Int = seRevCFG.bounds indexWhere (_ == bound)
 
   lazy val immediatePostdominator: Option[Block] =
-    (singleExitReverseCFG immediateDominators serOrdinal) match {
+    (seRevCFG immediateDominators seRevOrd) match {
       case self if self == bound => None
       case (-1, -1) => None
       case ipdom => Some(blocks(cfg.bounds indexOf ipdom))
     }
+
+  lazy val immediatelyPostdominated: List[Block] =
+    (seRevCFG immediatelyDominatedBy seRevOrd).toList.reverse map (
+      seOrd => blocks(cfg.bounds indexOf (seRevCFG bounds seOrd)))
 
   lazy val postdominators: List[Block] = immediatePostdominator match {
     case None => Nil
@@ -106,80 +112,76 @@ class Block(val ordinal: Int,
       case _ => false
     }
 
-/*  def isControlDependen//tOn(block: Block): Boolean =
-    (successors exists (block postdominates _)) &&
-    ! (block strictlyPostdominates this)*/
-
   lazy val dominanceFrontier: List[Block] =
     (info.cfg dominanceFrontiers ordinal).toList map blocks
-
-  lazy val ultimatelyDominated: Block =
-    if (immediatelyDominated.isEmpty) this
-    else immediatelyDominated.last.ultimatelyDominated
 
   lazy val controlExit: Option[Block] =
     immediatePostdominator match {
       case None => immediatelyDominated.lastOption
       case ipdom => ipdom
     }
-/*
-    if (successors.isEmpty) None
-    else (immediatelyDominated diff successors) ++
-	 (successors diff immediatelyDominated) match {
-	   case Nil => successors.lastOption
-	   case exits => exits.lastOption
-	 }*/
-/*	      immediatelyDominated.lastOption match {
-    case None => dominanceFrontier.lastOption
-    case dom => dom
-  }*/
 
-  /* check ordinal and bound */
-  def ordinallyPrecedes(subseq: Block*): Boolean = subseq.headOption match {
-    case None => true
-    case Some(block) =>
-      ordinal + 1 == block.ordinal && bound._2 == block.bound._1 &&
-      block.ordinallyPrecedes(subseq.tail: _*)
-  }
+  //SSA
 
   private val locals: Array[Local] = new Array(info.node.maxLocals)
 
-  def local(v: Int, id: Symbol, desc: String): Local = {
-    val loc = Local(v, id, desc)
-    locals(v) = loc
-    loc
+  def liveLocals: List[Local] = locals.toList filter (_ != null)
+
+  def mklocal(v: Int, id: Symbol, desc: String): Local = {
+    val local = Local(v, id, desc); locals(v) = local; local
   }
 
-  def mergeParentLocal(v: Int): Option[Local] = parent map (_ loadLocal v)
+  def mklocal(v: Int, desc: String): Local =
+    mklocal(v, info.uniqueLocalId("var_", v), desc)
 
+  def phiLocalsByIndex: Map[Int, Set[Local]] = immediatelyPostdominated match {
+    case Nil => Map.empty
+    case ipdomd =>
+      (ipdomd map (_.liveLocals)).toSet.flatten groupBy (_.index) filter {
+	case (v, phiLocals) => phiLocals.size > 1
+      }
+  }
+
+  def phiDesc(v: Int): String = phiLocalsByIndex(v).head.desc
+
+  def highestCommonDesc(locals: Set[Local]): String = {
+    locals.head.desc//whoops
+  }
+
+  // check-this -> check-arg -> check-phi -> check-idom
   def loadLocal(v: Int): Local = locals(v) match {
     case null if v == 0 && ! (info is 'static) =>
-      local(0, 'this, info.owner.desc)
-    case null => info.arguments.find(_._1 == v) match {
-      case Some((_, desc)) => local(v, Symbol("arg_"+ v), desc)
-      case None => mergeParentLocal(v) match {
-	case Some(loc) =>
-	  locals(v) = loc
-	  loc
+      mklocal(0, 'this, info.owner.desc)
+    case null =>
+      (info.arguments find (_._1 == v)) match {
+	case Some((_, desc)) => mklocal(v, Symbol("arg_"+ v), desc)
 	case None =>
-	  throw new RuntimeException("block_"+ ordinal +" var_"+ v +" is unavailable")
+	  (phiLocalsByIndex get v) match {
+	    case Some(phiLocals) =>
+	      mklocal(v, Symbol("var_"+ v), highestCommonDesc(phiLocals))
+	    case None =>
+	      (immediateDominator map (_ loadLocal v)) match {
+		case Some(idomLocal) => idomLocal
+		case None =>
+		  System.err.println("!!! no local at index "+ v +" !!!")
+		  debug(System.err, 0)
+		  throw new RuntimeException
+	      }
+	  }
       }
-    }
-    case loc => loc
+    case local => local
   }
 
-  def storeLocal(v: Int, expr: Expr): Store = locals(v) match {
-    case null => info.arguments.find(_._1 == v) match {
-      case Some((_, desc)) =>
-	Store(local(v, Symbol("arg_"+ v), expr.desc), expr)
-      case None =>
-	val loc = local(v, Symbol("var_"+ v), expr.desc)
-	locals(v) = loc
-	Store(loc, expr)
-    }
-    case loc =>
-      locals(v) = loc
-      Store(loc, expr)
+  def storeLocal(v: Int, expr: Expr): LocalStore = locals(v) match {
+    case null =>
+      val local = (info.arguments find (_._1 == v)) match {
+	case Some((_, desc)) => mklocal(v, Symbol("arg_"+ v), desc)
+	case None => mklocal(v, expr.desc)
+      }
+      locals(v) = local
+      LocalStore(local, expr)
+    case local =>
+      LocalStore(local, expr)
   }
 
   def labelId(insn: Insn): Symbol = Symbol(insnName(insn))
@@ -285,22 +287,22 @@ class Block(val ordinal: Int,
       case dreturn() => Return(Some(f(0)))
       case areturn() => Return(Some(f(0)))
       case vreturn() => Return(None)
-      case putstatic(own, name, desc) =>
-	Store(Field(own, name, desc, None), f(0))
-      case putfield(own, name, desc) =>
-	Store(Field(own, name, desc, Some(f(0))), f(1))
-      case invokevirtual(own, name, desc) =>
-	Void(Method(own, name, desc, args.headOption, args.tail))
-      case invokespecial(own, name, desc) =>
+      case putstatic(owner, name, desc) =>
+	RefStore(Field(owner, name, desc, None), f(0))
+      case putfield(owner, name, desc) =>
+	RefStore(Field(owner, name, desc, Some(f(0))), f(1))
+      case invokevirtual(owner, name, desc) =>
+	Void(Method(owner, name, desc, args.headOption, args.tail))
+      case invokespecial(owner, name, desc) =>
 	Void(args.head match {
 	  case New(inst) if name equals "<init>" =>
-	    InitNew(inst, own, desc, args.tail)
-	  case _ => Method(own, name, desc, args.headOption, args.tail)
+	    InitNew(inst, owner, desc, args.tail)
+	  case _ => Method(owner, name, desc, args.headOption, args.tail)
 	} )
-      case invokestatic(own, name, desc) =>
-	Void(Method(own, name, desc, None, args))
-      case invokeinterface(own, name, desc) =>
-	Void(Method(own, name, desc, args.headOption, args.tail))
+      case invokestatic(owner, name, desc) =>
+	Void(Method(owner, name, desc, None, args))
+      case invokeinterface(owner, name, desc) =>
+	Void(Method(owner, name, desc, args.headOption, args.tail))
       //case invokedynamic
       case athrow() => Throw(f(0))
       //case monitorenter() =>
@@ -337,20 +339,21 @@ class Block(val ordinal: Int,
     ps append toString
     ps append ordlistr(" ", predecessors, "-->*-->")
     //ps append ordlistr("", successors, " eks=")
-    ps append ordlistr("", successors, " idom=")
+    ps append ordlistr("", successors, " parent=")
 /*    val dfst = cfg.dfst
     ps append successors.map(s =>
       dfst.edgeKinds(ordinal -> s.ordinal)).mkString("[", ", ", "] ")
-    ps append (dfst.pre(ordinal).n +"/"+ dfst.post(ordinal).n +" parent=")
+    ps append (dfst.pre(ordinal).n +"/"+ dfst.post(ordinal).n +" parent=")*/
     parent foreach { p => ps append '#'; ps append (String valueOf p.ordinal) }
-    ps append ordlistr(" children=", children, " idom=")*/
+    /*ps append ordlistr(" children=", children, " idom=")*/
+    ps append " idom="
     immediateDominator foreach {
       d => ps append '#'; ps append (String valueOf d.ordinal) }
     ps append " ipdom="
     immediatePostdominator foreach {
       pd => ps append '#'; ps append (String valueOf pd.ordinal) }
-    ps append ordlistr(" doms=", dominators, "")
     ps append ordlistr(" idomd=", immediatelyDominated, "")
+    ps append ordlistr(" ipdomd=", immediatelyPostdominated, "")
     ps append ordlistr(" df=", dominanceFrontier, "")
     ps append '\n'
   }

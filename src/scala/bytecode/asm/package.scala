@@ -151,9 +151,10 @@ package object asm {
     case _ => false
   }
 
+  //composition template classes for mnemonic alias objects below
+
   sealed trait X {
     def unapply(insn: Insn): Any
-
     def any: Insn => Boolean = unapply(_) match {
       case false => false
       case None => false
@@ -168,17 +169,13 @@ package object asm {
 
   class NewarrayX(t: Int) extends X {
     def apply(): intInsnNode = IntInsnNode(NEWARRAY, t)
-
     def unapply(insn: Insn): Boolean = insn match {
       case IntInsnNode(NEWARRAY, x) => x == t; case _ => false
     }
   }
 
-  object nop extends InsnX(NOP)
-
   class VarInsnX(op: Int) extends X {
     def apply(v: Int): varInsnNode = VarInsnNode(op, v)
-
     def unapply(insn: Insn): Option[Int] = insn match {
       case VarInsnNode(x, v) if x == op => Some(v); case _ => None
     }
@@ -214,7 +211,6 @@ package object asm {
   class FieldInsnX(op: Int) extends MemberX {
     def apply(owner: String, name: String, desc: String): fieldInsnNode =
       FieldInsnNode(op, owner, name, desc)
-
     def unapply(insn: Insn): Option[(String, String, String)] = insn match {
       case FieldInsnNode(op0, owner, name, desc) if op0 == op =>
 	Some(owner, name, desc)
@@ -225,7 +221,6 @@ package object asm {
   class MethodInsnX(op: Int) extends MemberX {
     def apply(owner: String, name: String, desc: String): methodInsnNode =
       MethodInsnNode(op, owner, name, desc)
-
     def unapply(insn: Insn): Option[(String, String, String)] = insn match {
       case MethodInsnNode(op0, owner, name, desc) if op0 == op =>
 	Some(owner, name, desc)
@@ -239,7 +234,6 @@ package object asm {
 
   class JumpInsnX(op: Int) extends JumpX {
     def apply(lbl: labelNode): jumpInsnNode = JumpInsnNode(op, lbl)
-
     def unapply(insn: Insn): Option[labelNode] = insn match {
       case JumpInsnNode(op0, lbl) if op0 == op => Some(lbl)
       case _ => None
@@ -251,7 +245,6 @@ package object asm {
 	      default: labelNode,
 	      labels: List[labelNode]): tableswitchInsnNode =
       TableSwitchInsnNode(min, max, default, labels)
-
     def unapply(insn: Insn): Option[(Int, Int, labelNode, List[labelNode])] =
       insn match {
 	case TableSwitchInsnNode(min, max, default, labels) =>
@@ -265,7 +258,6 @@ package object asm {
 	      keys: List[Int],
 	      labels: List[labelNode]): lookupswitchInsnNode =
       LookupSwitchInsnNode(default, keys, labels)
-
     def unapply(insn: Insn): Option[(labelNode, List[Int], List[labelNode])] =
       insn match {
 	case LookupSwitchInsnNode(default, keys, labels) =>
@@ -277,12 +269,13 @@ package object asm {
   class MultiANewArrayX extends X {
     def apply(desc: String, dims: Int): multianewarrayInsnNode =
       MultiANewArrayInsnNode(desc, dims)
-
     def unapply(insn: Insn): Option[(String, Int)] = insn match {
       case MultiANewArrayInsnNode(desc, dims) => Some(desc, dims)
       case _ => None
     }
   }
+
+  //
 
   object label extends X {
     def apply(): labelNode = LabelNode(new Label)
@@ -299,6 +292,10 @@ package object asm {
       getstatic("java/lang/System", "out", "Ljava/io/PrintStream;") :: insns ++
       (invokevirtual("java/io/PrintStream", "println", "("+ desc +")V") :: Nil)
   }
+
+  // nop 0x00
+
+  object nop extends InsnX(NOP)
 
   // primitive push series 0x01-0x14
 
@@ -786,7 +783,6 @@ package object asm {
     }
   }
 
-  object arraylength extends InsnX(ARRAYLENGTH)
   object athrow extends InsnX(ATHROW)
   object instanceof extends TypeInsnX(INSTANCEOF)
   object monitorenter extends InsnX(MONITORENTER)
