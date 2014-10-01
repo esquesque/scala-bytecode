@@ -134,74 +134,74 @@ scala-bytecode
 
     val test: Test = {
       case Exec(LocalStore(_, _) ::
-	        If(_,
-		   Then(Return(_) ::
-		        Nil)) ::
-	        Label(_) ::
-	        If(_,
-		   Then(If(_,
-			   Then(Return(_) ::
-			        Nil)) ::
-		        Label(_) ::
-		        LocalStore(_, _) ::
-		        Nil)) ::
-	        Label(_) ::
-	        If(_,
-		   Then(ArrayStore(_, _, _) ::
-		        Return(_) ::
-		        Nil)) ::
-	        Label(_) ::
-	        If(Or(_, _),
-		   Then(Label(_) ::
-		        If(_,
-			   Then(Return(_) ::
-			        Nil)) ::
-		        Label(_) ::
-		        If(_,
-			   Then(If(_,
-				   Then(LocalStore(_, _) ::
-				        Goto(_, _) ::
-				        Nil),
-				   Else(Label(_) ::
-				        LocalStore(_, _) ::
-				        Goto(_, _) ::
-				        Nil)) ::
-			        Nil),
-			   Else(Label(_) ::
-			        If(Or(_, _),
-				   Then(Label(_) ::
-				        LocalStore(_, _) ::
-				        Goto(_, _) ::
-				        Nil),
-				   Else(Label(_) ::
-				        LocalStore(_, _) ::
-				        Goto(_, _) ::
-				        Nil)) ::
-			        Nil)) ::
-		        Nil),
-		   Else(Label(_) ::
-		        If(_,
-			   Then(If(Or(_, _),
-				   Then(Label(_) ::
-				        LocalStore(_, _) ::
-				        Goto(_, _) :: Nil),
-				   Else(Label(_) ::
-				        LocalStore(_, _) :: Nil)) ::
-			        Label(_) ::
-			        LocalStore(_, Phi(_, _)) ::
-			        LocalStore(_, _) ::
-			        Goto(_, _) :: Nil),
-			   Else(Label(_) ::
-			        LocalStore(_, _) :: Nil)) :: Nil)) ::
-	        Label(_) ::
-	        LocalStore(_, Phi(_, _, _, _, _, _)) ::
-	        If(_,
-		   Then(ArrayStore(_, _, _) ::
-		        Return(_) ::
-		        Nil)) ::
-	        Label(_) ::
-	        Return(_) ::
-	        Nil) => true
+                If(_,
+                   Then(Return(_) ::
+                        Nil)) ::
+                Label(_) ::
+                If(_,
+                   Then(If(_,
+                           Then(Return(_) ::
+                                Nil)) ::
+                        Label(_) ::
+                        LocalStore(_, _) ::
+                        Nil)) ::
+                Label(_) ::
+                If(_,
+                   Then(ArrayStore(_, _, _) ::
+                        Return(_) ::
+                        Nil)) ::
+                Label(_) ::
+                If(Or(_, _),
+                   Then(Label(_) ::
+                        If(_,
+                           Then(Return(_) ::
+                                Nil)) ::
+                        Label(_) ::
+                        If(_,
+                           Then(If(_,
+                                   Then(LocalStore(_, _) ::
+                                        Goto(_, _) ::
+                                        Nil),
+                                   Else(Label(_) ::
+                                        LocalStore(_, _) ::
+                                        Goto(_, _) ::
+                                        Nil)) ::
+                                Nil),
+                           Else(Label(_) ::
+                                If(Or(_, _),
+                                   Then(Label(_) ::
+                                        LocalStore(_, _) ::
+                                        Goto(_, _) ::
+                                        Nil),
+                                   Else(Label(_) ::
+                                        LocalStore(_, _) ::
+                                        Goto(_, _) ::
+                                        Nil)) ::
+                                Nil)) ::
+                        Nil),
+                   Else(Label(_) ::
+                        If(_,
+                           Then(If(Or(_, _),
+                                   Then(Label(_) ::
+                                        LocalStore(_, _) ::
+                                        Goto(_, _) :: Nil),
+                                   Else(Label(_) ::
+                                        LocalStore(_, _) :: Nil)) ::
+                                Label(_) ::
+                                LocalStore(_, Phi(_, _)) ::
+                                LocalStore(_, _) ::
+                                Goto(_, _) :: Nil),
+                           Else(Label(_) ::
+                                LocalStore(_, _) :: Nil)) :: Nil)) ::
+                Label(_) ::
+                LocalStore(_, Phi(_, _, _, _, _, _)) ::
+                If(_,
+                   Then(ArrayStore(_, _, _) ::
+                        Return(_) ::
+                        Nil)) ::
+                Label(_) ::
+                Return(_) ::
+                Nil) => true
       case tree => false
     }
 
