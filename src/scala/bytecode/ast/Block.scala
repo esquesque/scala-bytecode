@@ -48,11 +48,16 @@ class Block(val ordinal: Int,
   lazy val children: List[Block] =
     cfg.dfst.children(ordinal).toList map (n => blocks(n.n))
 
-  /* excludes self-domination by entry block */
+  /* Returns None whenever:
+   *  * this is the entry block -- due to the immediate dominator algorithm,
+   *                               which starts at the entry.
+   *  * this is a catch block
+   */
   lazy val immediateDominator: Option[Block] =
     (cfg immediateDominators ordinal) match {
-      case self if self == bound => None
-      case idom => Some(blocks(cfg.bounds indexOf idom))
+      case Some(self) if self == bound => None
+      case Some(idom) => Some(blocks(cfg.bounds indexOf idom))
+      case None => None
     }
 
   /* excludes self-domination by entry block */
@@ -74,9 +79,9 @@ class Block(val ordinal: Int,
 
   lazy val immediatePostdominator: Option[Block] =
     (seRevCFG immediateDominators seRevOrd) match {
-      case self if self == bound => None
-      case (-1, -1) => None
-      case ipdom => Some(blocks(cfg.bounds indexOf ipdom))
+      case Some(self) if self == bound => None
+      case Some((-1, -1)) => None
+      case Some(ipdom) => Some(blocks(cfg.bounds indexOf ipdom))
     }
 
   lazy val immediatelyPostdominated: List[Block] =
@@ -138,14 +143,8 @@ class Block(val ordinal: Int,
     case Nil => Map.empty
     case ipdomd =>
       (ipdomd map (_.liveLocals)).toSet.flatten groupBy (_.index) filter {
-	case (v, phiLocals) => phiLocals.size > 1
+	case (v, phiLocals) => phiLocals.size > 1//no
       }
-  }
-
-  def phiDesc(v: Int): String = phiLocalsByIndex(v).head.desc
-
-  def highestCommonDesc(locals: Set[Local]): String = {
-    locals.head.desc//whoops
   }
 
   // check-this -> check-arg -> check-phi -> check-idom
@@ -158,7 +157,8 @@ class Block(val ordinal: Int,
 	case None =>
 	  (phiLocalsByIndex get v) match {
 	    case Some(phiLocals) =>
-	      mklocal(v, Symbol("var_"+ v), highestCommonDesc(phiLocals))
+	      mklocal(v, Symbol("var_"+ v),
+		      info.cxt commonDesc (phiLocals map (_.desc)).toSeq)
 	    case None =>
 	      (immediateDominator map (_ loadLocal v)) match {
 		case Some(idomLocal) => idomLocal

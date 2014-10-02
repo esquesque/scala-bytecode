@@ -47,24 +47,26 @@ object CollapseTernaryExprs extends MethodInfo.CFGTransform {
       (for (bound <- nonZeroBlockBounds) yield {
 	val ord = cfg.bounds indexOf bound
 	//println("!!!"+ bound)
-	val head = cfg.dominanceFrontiers(ord).toList match {
-	  case Nil => cfg.immediateDominators(ord)
-	  case df =>
-	    (df map cfg.immediateDominators).head
-	}
-	val domEndDepth =
-	  frames(head._2).getStackSize
-	//println("dom end depth "+ domEndDepth)
-	val begDepth = frames(bound._1).getStackSize
-	val localSpecs = stackDescs(frames(bound._1), domEndDepth) map (desc =>
-	  (nextLocal(desc), desc))
-	val loads = localSpecs map { case (v, desc) => load(v, desc) }
-	(for (pred <- cfg predecessors bound) yield {
-          val insertIdx = ((pred._1 until pred._2).reverse find (idx =>
-	    frames(idx + 1).getStackSize == begDepth)).get + 1
-          val stores = localSpecs map { case (v, desc) => store(v, desc) }
-          (insertIdx, insertIdx) -> stores
-	} ) ++ ((bound._1 + 1, bound._1 + 1) -> loads :: Nil)
+	val head: Option[(Int, Int)] =
+	  cfg.dominanceFrontiers(ord).toList match {
+	    case Nil => cfg.immediateDominators(ord)
+	    case df => cfg.immediateDominators(df.head)
+	  }
+	if (head.isDefined) {
+	  val domEndDepth =
+	    frames(head.get._2).getStackSize
+	  //println("dom end depth "+ domEndDepth)
+	  val begDepth = frames(bound._1).getStackSize
+	  val localSpecs = stackDescs(frames(bound._1), domEndDepth) map (desc =>
+	    (nextLocal(desc), desc))
+	  val loads = localSpecs map { case (v, desc) => load(v, desc) }
+	  (for (pred <- cfg predecessors bound) yield {
+            val insertIdx = ((pred._1 until pred._2).reverse find (idx =>
+	      frames(idx + 1).getStackSize == begDepth)).get + 1
+            val stores = localSpecs map { case (v, desc) => store(v, desc) }
+            (insertIdx, insertIdx) -> stores
+	  } ) ++ ((bound._1 + 1, bound._1 + 1) -> loads :: Nil)
+	} else Nil
       } ).flatten
     MethodInfo.Changes(None, Some(curLocal), spec)
   }

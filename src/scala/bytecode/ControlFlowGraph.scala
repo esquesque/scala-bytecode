@@ -154,7 +154,7 @@ abstract class ControlFlowGraph(val method: MethodInfo) {
    * A Simple, Fast Dominance Algorithm
    * www.hipersoft.rice.edu/grads/publications/dom14.pdf
    */
-  lazy val immediateDominators: Array[(Int, Int)] = {
+  lazy val immediateDominators: List[Option[(Int, Int)]] = {
     val tree = dfst
     val bs = bounds
     val rpo = tree.postorder.reverse
@@ -188,13 +188,19 @@ abstract class ControlFlowGraph(val method: MethodInfo) {
 	}
       }
     }
-    idoms
+    (idoms map (idom =>
+      if (idom == null) None else Some(idom))).toList
   }
 
   lazy val immediatelyDominatedBy: Array[BitSet] = {
     val idomd = Array.fill(bounds.length)(BitSet.empty)
-    for (i <- 0 until bounds.length)
-      idomd(bounds indexOf immediateDominators(i)) += i
+    for (i <- 0 until bounds.length) {
+      immediateDominators(i) match {
+	case Some(idom) =>
+	  idomd(bounds indexOf idom) += i
+	case None =>
+      }
+    }
     idomd
   }
 
@@ -205,10 +211,13 @@ abstract class ControlFlowGraph(val method: MethodInfo) {
       if (preds.length > 1)
 	for (pred <- preds) {
 	  var run = pred
-	  while (run != immediateDominators(idx)) {
-	    val runIdx = bounds indexOf run
-	    dfs(runIdx) += idx
-	    run = immediateDominators(runIdx)
+	  val idom = immediateDominators(idx)
+	  if (idom.isDefined) {
+	    while (run != idom.get) {
+	      val runIdx = bounds indexOf run
+	      dfs(runIdx) += idx
+	      run = immediateDominators(runIdx) getOrElse idom.get
+	    }
 	  }
 	}
     }

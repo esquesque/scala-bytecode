@@ -68,35 +68,35 @@ object AnchorFloatingStmts extends MethodInfo.CFGTransform {
     println("zBounds="+ zBounds)
     val hits = for ((zBeg, zEnd) <- zBounds) yield {
       val stmts =
-	for ((insn, idx) <- tailor(zBeg, zEnd) if ! insnPushes(insn)) yield {
-	       var stmtIdx = zBeg + idx
-	       val nextFrame = frames(stmtIdx + 1)
-	       val stmtBeg = ((zBeg until stmtIdx).reverse find (x =>
-		 frames(x).getStackSize == nextFrame.getStackSize)) match {
-		   case Some(idx) => idx
-		   case None =>
-		     throw new RuntimeException("no eq stack frame w/i "+
-						zBeg +"..."+stmtIdx)
-		 }
-	       insns(stmtIdx) match {
-		 case JumpInsnNode(_, lbl) =>
-		   val ord = cfg.bounds.indexWhere(_._2 == stmtIdx + 1)
-		   stmtIdx = cfg.bounds(cfg.dominanceFrontiers(ord).head)._1
-		 case _ =>
-	       }
-	       (stmtBeg, stmtIdx)
-	     }
+	for ((insn, idx) <- tailor(zBeg, zEnd)
+	     if ! insnPushes(insn) && ! (tcs exists (_._3 == zBeg + 1))) yield {
+	  var stmtIdx = zBeg + idx
+	  val nextFrame = frames(stmtIdx + 1)
+	  val stmtBeg = ((zBeg until stmtIdx).reverse find (x =>
+	    frames(x).getStackSize == nextFrame.getStackSize)) match {
+	      case Some(idx) => idx
+	      case None =>
+		throw new RuntimeException("no eq stack frame w/i "+
+					   zBeg +"..."+stmtIdx)
+	    }
+	  insns(stmtIdx) match {
+	    case JumpInsnNode(_, lbl) =>
+	      val ord = cfg.bounds.indexWhere(_._2 == stmtIdx + 1)
+	      stmtIdx = cfg.bounds(cfg.dominanceFrontiers(ord).head)._1
+	    case _ =>
+	  }
+	  (stmtBeg, stmtIdx)
+	}
       (zBeg, stmts.toList, zEnd)
     }
     hits filter (_._2.nonEmpty) foreach println
     def func(x: List[List[(Int, Int, Option[String])]]): List[(Int, Int, Option[String])] =
       x.reduceLeft((left, right) =>
 	((left.init zip right) map {
-	  case ((lsIdx, llIdx, lDesc),
-		(rsIdx, rlIdx, rDesc)) =>
-		  println("***l "+lsIdx+","+llIdx+","+lDesc)
-		  println("***r "+rsIdx+","+rlIdx+","+rDesc)
-		  (lsIdx, rlIdx, rDesc)
+	  case ((lsIdx, llIdx, lDesc), (rsIdx, rlIdx, rDesc)) =>
+	    println("***l "+lsIdx+","+llIdx+","+lDesc)
+	    println("***r "+rsIdx+","+rlIdx+","+rDesc)
+	    (lsIdx, rlIdx, rDesc)
 	} ) :+ left.last)
     val spec: MethodInfo.InsnSpec = (hits map {
       case (_, Nil, _) => Nil

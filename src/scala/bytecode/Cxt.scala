@@ -138,6 +138,16 @@ class Cxt {
       (resourceStreams get name) getOrElse super.getResourceAsStream(name)
     }
   }
+
+  def commonDesc(descs: Seq[String]): String = {
+    def f(desc0: String, desc1: String): String = {
+      if (desc0 equals desc1) desc0
+      else {
+	desc0
+      }
+    }
+    descs reduce f _
+  }
 }
 
 object Cxt {
@@ -154,15 +164,11 @@ object Cxt {
     'abstract   -> ACC_ABSTRACT,   'synthetic -> ACC_SYNTHETIC,
     'annotation -> ACC_ANNOTATION, 'enum      -> ACC_ENUM)
   val fieldModifierAccess: Map[Symbol, Int] = IMap(
-    'public    -> ACC_PUBLIC,
-    'private   -> ACC_PRIVATE,
-    'protected -> ACC_PROTECTED,
-    'static    -> ACC_STATIC,
-    'final     -> ACC_FINAL,
-    'volatile  -> ACC_VOLATILE,
-    'transient -> ACC_TRANSIENT,
-    'synthetic -> ACC_SYNTHETIC,
-    'enum -> ACC_ENUM)
+    'public    -> ACC_PUBLIC,    'private   -> ACC_PRIVATE,
+    'protected -> ACC_PROTECTED, 'static    -> ACC_STATIC,
+    'final     -> ACC_FINAL,     'volatile  -> ACC_VOLATILE,
+    'transient -> ACC_TRANSIENT, 'synthetic -> ACC_SYNTHETIC,
+    'enum      -> ACC_ENUM)
   val methodModifierAccess: Map[Symbol, Int] = IMap(
     'public    -> ACC_PUBLIC,    'private      -> ACC_PRIVATE,
     'protected -> ACC_PROTECTED, 'static       -> ACC_STATIC,
