@@ -66,6 +66,7 @@ object AnchorFloatingStmts extends MethodInfo.CFGTransform {
     }
     val zBounds = stackZeroBounds(frames)
     println("zBounds="+ zBounds)
+    lazy val seRev = cfg.singleExitReverse
     val hits = for ((zBeg, zEnd) <- zBounds) yield {
       val stmts =
 	for ((insn, idx) <- tailor(zBeg, zEnd)
@@ -82,7 +83,11 @@ object AnchorFloatingStmts extends MethodInfo.CFGTransform {
 	  insns(stmtIdx) match {
 	    case JumpInsnNode(_, lbl) =>
 	      val ord = cfg.bounds.indexWhere(_._2 == stmtIdx + 1)
-	      stmtIdx = cfg.bounds(cfg.dominanceFrontiers(ord).head)._1
+	      val ipdom = (seRev immediateDominators (
+		seRev.bounds indexWhere (_._2 == stmtIdx + 1))).get
+	      println("~~~~"+ ord)
+	      println(cfg.singleExitReverse.immediateDominators(cfg.singleExitReverse.bounds indexWhere (_._2 == stmtIdx + 1)))
+	      stmtIdx = ipdom._1
 	    case _ =>
 	  }
 	  (stmtBeg, stmtIdx)
