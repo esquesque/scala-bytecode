@@ -29,7 +29,7 @@ package object ast {
     case _: Double => "D"
     case _: Class[_] => "Ljava/lang/Class;"
     case _: String => "Ljava/lang/String;"
-    case null => "Ljava/lang/Object;"
+    case null => "Lnull;"
     case _ => throw new RuntimeException("descOf("+ value +")")
   }
 

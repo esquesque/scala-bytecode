@@ -41,6 +41,7 @@ abstract class ControlFlowGraph(val method: MethodInfo) {
     blocks
   }
 
+  /* Used to access postdominators. */
   def singleExitReverse: ControlFlowGraph = new ControlFlowGraph(method) {
     val cfg = ControlFlowGraph.this
     val dummyExit: (Int, Int) = (-1, -1)
@@ -97,7 +98,6 @@ abstract class ControlFlowGraph(val method: MethodInfo) {
   }
 
   lazy val dfst: Tree = {
-    println(bounds)
     val pre0 = Array.fill(bounds.length)(-1)
     val post0 = Array.fill(bounds.length)(-1)
     val pre1 = new Array[Node](bounds.length)

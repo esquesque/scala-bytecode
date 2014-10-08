@@ -81,11 +81,15 @@ extends MemberInfo[MethodNode, ast.MethodDecl] {
   @unchecked
   def addTryCatch(tryEntry: Int, tryExit: Int, catchIdx: Int,
 		  excn: Option[String]) {
-    ((tryEntry :: tryExit :: catchIdx :: Nil) map instructions) match {
-      case (s: LabelNode) :: (e: LabelNode) :: (h: LabelNode) :: _ =>
-	val tcb = new TCB(s, e, h, excn.orNull)
-	node.tryCatchBlocks.asInstanceOf[list[TCB]].add(tcb)
-    }
+    (instructions(tryEntry),
+     instructions(tryExit),
+     instructions(catchIdx)) match {
+       case (s: LabelNode, e: LabelNode, h: LabelNode) =>
+	 node.tryCatchBlocks.asInstanceOf[list[TCB]].add(
+	   new TCB(s, e, h, excn.orNull))
+       case _ =>
+	 throw new RuntimeException
+     }
   }
 
   def apply(changes: MethodInfo.Changes): MethodInfo.Record = {

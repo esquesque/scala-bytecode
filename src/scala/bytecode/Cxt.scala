@@ -143,7 +143,11 @@ class Cxt {
     def f(desc0: String, desc1: String): String = {
       if (desc0 equals desc1) desc0
       else {
-	desc0
+	(desc0, desc1) match {
+	  case ("Lnull;", desc) => desc
+	  case (desc, "Lnull;") => desc
+	  case _ => desc0//TODO
+	}
       }
     }
     descs reduce f _

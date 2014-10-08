@@ -43,79 +43,68 @@ class Block(val ordinal: Int,
   lazy val edgesOut: List[(Block, EdgeKind)] = successors map (succ =>
     (succ, cfg.dfst.edgeKinds(ordinal -> succ.ordinal)))
 
+  /* DFST parent.
+   */
   lazy val parent: Option[Block] =
     cfg.dfst.parents(ordinal) map (n => blocks(n.n))
+
+  /* DFST children.
+   */
   lazy val children: List[Block] =
     cfg.dfst.children(ordinal).toList map (n => blocks(n.n))
 
-  /* Returns None whenever:
-   *  * this is the entry block -- due to the immediate dominator algorithm,
-   *                               which starts at the entry.
-   *  * this is a catch block
+  /* Returns None whenever this block has no incoming edges.
    */
   lazy val immediateDominator: Option[Block] =
     (cfg immediateDominators ordinal) match {
       case Some(self) if self == bound => None
-      case Some(idom) => Some(blocks(cfg.bounds indexOf idom))
+      case Some(idomBounds) => Some(blocks(cfg.bounds indexOf idomBounds))
       case None => None
     }
 
-  /* excludes self-domination by entry block */
+  /* Excludes self-domination by entry block. */
   lazy val immediatelyDominated: List[Block] =
     (cfg immediatelyDominatedBy ordinal).toList match {
-      case self :: rest if self == ordinal => rest map blocks
-      case subs => subs map blocks
+      case self :: idomdOrds if self == ordinal => idomdOrds map blocks
+      case idomdOrds => idomdOrds map blocks
     }
 
-  lazy val dominators: List[Block] = immediateDominator match {
-    case None => Nil
-    case Some(idom) => idom.dominators :+ idom
-  }
+  lazy val dominators: List[Block] = immediateDominator map (idom =>
+    idom.dominators :+ idom) getOrElse Nil
 
   //
 
-  lazy val seRevCFG: ControlFlowGraph = cfg.singleExitReverse
-  lazy val seRevOrd: Int = seRevCFG.bounds indexWhere (_ == bound)
+  private lazy val seRevCFG: ControlFlowGraph = cfg.singleExitReverse
+  private lazy val seRevSize: Int = seRevCFG.bounds.length
+  private lazy val seRevOrd: Int = seRevSize - 1 - ordinal
 
+  /* Excludes domination by dummy exit block (-1, -1). */
   lazy val immediatePostdominator: Option[Block] =
     (seRevCFG immediateDominators seRevOrd) match {
-      case Some(self) if self == bound => None
       case Some((-1, -1)) => None
-      case Some(ipdom) => Some(blocks(cfg.bounds indexOf ipdom))
+      case Some(ipdomBounds) => Some(blocks(cfg.bounds indexOf ipdomBounds))
+      case None => None
     }
 
   lazy val immediatelyPostdominated: List[Block] =
-    (seRevCFG immediatelyDominatedBy seRevOrd).toList.reverse map (
-      seOrd => blocks(cfg.bounds indexOf (seRevCFG bounds seOrd)))
+    (seRevCFG immediatelyDominatedBy seRevOrd).toList.reverse map (ipdomdOrd =>
+      blocks(seRevSize - 1 - ipdomdOrd))
 
-  lazy val postdominators: List[Block] = immediatePostdominator match {
-    case None => Nil
-    case Some(ipdom) => ipdom.postdominators :+ ipdom
-  }
+  lazy val postdominators: List[Block] = immediatePostdominator map (ipdom =>
+    ipdom.postdominators :+ ipdom) getOrElse Nil
 
   def dominates(block: Block): Boolean =
     if (block equals this) true else block.dominators contains this
-
   def strictlyDominates(block: Block): Boolean =
     if (block equals this) false else block.dominators contains this
-
   def immediatelyDominates(block: Block): Boolean =
-    block.immediateDominator match {
-      case Some(idom) => idom equals this
-      case _ => false
-    }
-
+    block.immediateDominator map (_ equals this) getOrElse false
   def postdominates(block: Block): Boolean =
     if (block == this) true else block.postdominators contains this
-
   def strictlyPostdominates(block: Block): Boolean =
     if (block == this) false else block.postdominators contains this
-
   def immediatelyPostdominates(block: Block): Boolean =
-    block.immediatePostdominator match {
-      case Some(ipdom) => ipdom equals this
-      case _ => false
-    }
+    block.immediatePostdominator map (_ equals this) getOrElse false
 
   lazy val dominanceFrontier: List[Block] =
     (info.cfg dominanceFrontiers ordinal).toList map blocks

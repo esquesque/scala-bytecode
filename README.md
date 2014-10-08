@@ -1,9 +1,9 @@
 scala-bytecode
 ==============
 
-## Facile bytecode analysis, disassembling, and manipulation in Scala.
+## Terse bytecode analysis, comprehension, and optimization in Scala.
 
-### Built on top of ObjectWeb ASM 4.0.
+### Built on top of ObjectWeb ASM 5.0.
 
 # Bytecode in a Can
 
@@ -13,13 +13,18 @@ scala-bytecode
 
 * scala.bytecode
 
-  A base library for loading and manipulating bytecode data structures with
-  ASM. The master object is Cxt which is much like a ClassLoader, keeping track
+  A base package for loading and modifying bytecode data structures with ASM.
+  The master object is Cxt which resembles a ClassLoader, with some key
+  differences.
   of relevant classes and their relationships.
 
   These are the main entrypoints to the library:
   ```scala
-  Cxt.default: Cxt
+  Cxt.default: Cxt = new Cxt
+
+  // returns Some(classInfo) if there is a class defined with name qual
+  Cxt.lookup(qual: String): Option[ClassInfo]
+  // returns a ClassInfo instance even if the 
   Cxt.resolve(node: ClassNode ~
               name: String ~
               bytes: Array[Byte] ~

@@ -82,11 +82,8 @@ object AnchorFloatingStmts extends MethodInfo.CFGTransform {
 	    }
 	  insns(stmtIdx) match {
 	    case JumpInsnNode(_, lbl) =>
-	      val ord = cfg.bounds.indexWhere(_._2 == stmtIdx + 1)
 	      val ipdom = (seRev immediateDominators (
 		seRev.bounds indexWhere (_._2 == stmtIdx + 1))).get
-	      println("~~~~"+ ord)
-	      println(cfg.singleExitReverse.immediateDominators(cfg.singleExitReverse.bounds indexWhere (_._2 == stmtIdx + 1)))
 	      stmtIdx = ipdom._1
 	    case _ =>
 	  }
@@ -120,7 +117,8 @@ object AnchorFloatingStmts extends MethodInfo.CFGTransform {
 	  val xyz: List[(Int, Int, Option[String])] = preSubSpecs match {
 	    case _ :: Nil => preSubSpecs.flatten
 	    case _ :: _ :: Nil => func(preSubSpecs)
-	    case _ => preSubSpecs.head ++ func(preSubSpecs.tail)//i think this is sufficient
+	    case _ => preSubSpecs.head ++ func(preSubSpecs.tail)
+	    //i think this is sufficient
 	    //is it?
 	  }
 	  val subSpec = xyz map {
