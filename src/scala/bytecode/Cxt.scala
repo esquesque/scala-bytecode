@@ -77,7 +77,7 @@ class Cxt {
       case Some(Undefined(info)) => info
       case None =>
 	val node = new ClassNode
-	node.name = name
+	node.name = qual
 	val info = new ClassInfo(this, node)
 	classes(name) = Undefined(info)
 	info

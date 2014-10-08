@@ -1,77 +1,50 @@
 scala-bytecode
 ==============
 
-## Terse bytecode analysis, comprehension, and optimization in Scala.
+# Terse bytecode analysis, comprehension, and optimization in Scala.
 
 ### Built on top of ObjectWeb ASM 5.0.
 
-# Bytecode in a Can
+## Bytecode in a Can
 
 ####Notice:
 
-  This work is incomplete. Please exercise caution.
+  This work is yet incomplete. Please exercise caution.
 
 * scala.bytecode
 
   A base package for loading and modifying bytecode data structures with ASM.
   The master object is Cxt which resembles a ClassLoader, with some key
-  differences.
-  of relevant classes and their relationships.
+  differences. The data structures class, field, and info share the trait
+  `Info`. With regards to accessing these structures, `resolve` will always
+  return a valid `Info` object even if it is undefined, whereas `lookup` returns
+  an `Option[Info]` indicating whether or not it is actually defined.
 
-  These are the main entrypoints to the library:
   ```scala
-  Cxt.default: Cxt = new Cxt
+  val cxt = new Cxt
 
-  // returns Some(classInfo) if there is a class defined with name qual
-  Cxt.lookup(qual: String): Option[ClassInfo]
-  // returns a ClassInfo instance even if the 
-  Cxt.resolve(node: ClassNode ~
-              name: String ~
-              bytes: Array[Byte] ~
-              is: InputStream ~
-              f: File): ClassInfo
-  Cxt.resolveDir(dir: File): List[ClassInfo]
-  Cxt.resolveJar(jf: java.util.jar.JarFile): List[Either[ClassInfo, InputStream]]
+  cxt.lookup("fruit/Banana")
+  // => None
+  cxt.resolve("fruit/Banana")
+  // => class fruit/Banana
+  cxt.lookup("fruit/Banana")
+  // => None
+  ClassInfo('public, 'final)("fruit/Banana")(cxt)
+  // => public final class fruit/Banana
+  cxt.lookup("fruit/Banana")
+  // => Some(public final class fruit/Banana)
   ```
 
-  ClassInfo, MethodInfo, and FieldInfo are the main objects of analysis (ASM
-  wrappers) and translation into intermediate-representation (IR) and beyond.
-
-  Functions useful for code analysis are:
-  ```scala
-  MethodInfo.cfg: ControlFlowGraph
-  ControlFlowGraph.mkblocks(frames: Array[org.objectweb.asm.tree.analysis.Frame]): List[ast.Block]
-  ast.Block.predecessors: List[Block]
-  ast.Block.successors: List[Block]
-  ast.Block.edgesIn: List[(Block, EdgeKind)]
-  ast.Block.edgesOut: List[(Block, EdgeKind)]
-  ast.Block.parent: Option[Block]
-  ast.Block.children: List[Block]
-  ast.Block.immediateDominator: Option[Block]
-  ast.Block.dominators: List[Block]
-  ast.Block.immediatelyDominated: List[Block]
-  ast.Block.immediatePostdominator: Option[Block]
-  ast.Block.postdominators: List[Block]
-  ast.Block.dominates(block: Block): Boolean
-  ast.Block.strictlyDominates(block: Block): Boolean
-  ast.Block.immediatelyDominates(block: Block): Boolean
-  ast.Block.postdominates(block: Block): Boolean
-  ast.Block.strictlyPostdominates(block: Block): Boolean
-  ast.Block.immediatelyPostdominates(block: Block): Boolean
-  ast.Block.dominanceFrontier: List[Block]
-  Info.tree[Tree <: ast.AST]
-  ```
-
-  Descendants of the trait ast.AST are pattern-matchable case classes. See
-  contents of the test package for examples of what this looks like.
-
-  Includes bytecode transforms essential for well-behaved IR:
+  Also part of this package are a few bytecode transforms essential for the AST
+  algorithms:
 
   CollapseStackManipulations: transforms dup* stacks out into local store/loads
   CollapseTernaryExprs: transforms ternary expression stacks out into stmts/
                         local store/loads
   AnchorFloatingStmts: tares statements that are "floating" in a non-0 stack and
                        moves locals accordingly; use after CollapseTernaryExprs
+
+  These are very unpleasant to look at. Just a heads up.
 
 - - - -
 
@@ -100,8 +73,11 @@ scala-bytecode
 
 * scala.bytecode.ast
 
-  A cogent, concise, and pattern-matchable AST IR for bytecodes. Still under
-  development.
+  Still under development.
+
+  A cogent, concise, and pattern-matchable AST IR for bytecodes. Descendants of
+  the trait AST are pattern-matchable case classes. See contents of the test
+  package for examples of what this looks like.
 
   Example:
   ```scala
@@ -112,9 +88,9 @@ scala-bytecode
   classDecl.out()//print Java-style IR
   ```
 
-  Things that work: if short-circuit structuring; if-else structuring
+  Things that work: short-circuit, if-else, try-catch
 
-  Things slated for development: loop support, try-catch-finally support
+  Things under development: loops, finally, var typing, switch stmts
 
 - - - -
 
