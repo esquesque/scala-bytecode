@@ -44,16 +44,15 @@ package object ast {
     }
   }
 
-  object IfBlock {
-    def unapply(block: Block): Option[(Block, List[Stmt], Cond)] = {
+  object BranchBlock {
+    def unapply(block: Block): Option[(List[Stmt], Cond)] = {
       val body = block.body
       val init = body match {
 	case _ :: Nil => Nil
 	case body => body.init
       }
       body.last match {
-	case If(cond, _) =>
-	  Some((block, init, cond))
+	case If(cond, _) => Some((init, cond))
 	case _ => None
       }
     }

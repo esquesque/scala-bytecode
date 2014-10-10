@@ -18,7 +18,7 @@
 package scala.bytecode.ast
 
 import org.objectweb.asm.Type
-import scala.bytecode.MethodInfo
+import scala.bytecode.{Back, MethodInfo}
 import scala.bytecode.asm._
 
 class MethodDecl(val modifiers: List[Symbol],
@@ -72,16 +72,27 @@ class MethodDecl(val modifiers: List[Symbol],
 
     val enteringTryCatches = tryCatches filter (_._1 == entry.bound._1)
 
-    val (stmts, trailing) = entry match {
-      case _ if enteringTryCatches.nonEmpty =>
-        structTryCatch(entry,
-		       exit.get,
-		       enteringTryCatches) match {
-	  case (stmt, trailing) => (stmt :: Nil, trailing)
+    val (stmts, trailing) = if (enteringTryCatches.nonEmpty) {
+      structTryCatch(entry,
+		     exit.get,
+		     enteringTryCatches) match {
+	case (stmt, trailing) => (stmt :: Nil, trailing)
+      }
+    } else {
+      val backEdgesIn = entry.edgesIn filter (_._2 == Back)
+
+      if (backEdgesIn.nonEmpty) {
+	val loopBlocks = backEdgesIn map (_._1)
+	debug("*struct* loopBlocks=")
+	loopBlocks foreach (_.debug(System.out, debugIndent))
+	//structLoop(entry, exit.get, loopBlocks)
+	throw new RuntimeException
+      } else {
+	entry match {
+	  case BranchBlock(_, cond) => structIf(entry, exit.get)
+	  case _ => (entry.body, None)
 	}
-      case IfBlock(_, init, cond) =>
-	structIf(entry, exit.get, cond)
-      case _ => (entry.body, None)
+      }
     }
 
     { debugIndent -= 2 }
@@ -106,8 +117,7 @@ class MethodDecl(val modifiers: List[Symbol],
     }
 
     val (stmts, tryTrailing) = entry match {
-      case IfBlock(_, _, cond) if tcs.nonEmpty =>
-	structIf(entry, exit, cond)
+      case BranchBlock(_, cond) if tcs.nonEmpty => structIf(entry, exit)
       case _ => (entry.body, None)
     }
     val handlerBlocks = handlerIdcs map (idx =>
@@ -122,7 +132,81 @@ class MethodDecl(val modifiers: List[Symbol],
     { debugIndent -= 2 }
 
     (Try(stmts ++ endBlock.body,
-	 (catchesAndTrailings map (_._1)): _*), handlerBlocks.last.controlExit)
+	 (catchesAndTrailings map (_._1)): _*),
+     handlerBlocks.last.controlExit)
+  }
+
+  def combConds(entry: Block,
+		cond: Cond,
+		ifBlocks: List[Block],
+		falseBlock: Block): Cond = ifBlocks match {
+    case Nil => cond.invert
+    case BranchBlock(init, cond1) :: rest =>
+      val succs = entry.successors
+      val next = ifBlocks.head
+      val sect = succs intersect next.successors
+      //LHA
+      if (sect exists (_.ordinal < falseBlock.ordinal))
+	combConds(next,
+		  if (succs contains falseBlock) Or(cond, cond1)
+		  else And(cond.invert, cond1), rest, falseBlock)
+      //RHA
+      else
+	if (succs contains falseBlock)
+	  Or(cond, combConds(next, cond1, rest, falseBlock))
+	else
+	  And(cond.invert, combConds(next, cond1, rest, falseBlock))
+    case _ =>
+      System.err.println("ERROR")
+      System.err.println(" entry=")
+      entry.debug(System.err, 2)
+      System.err.println(" ifs=")
+      ifBlocks foreach {
+	_.debug(System.err, 2)
+      }
+      System.err.println(" false=")
+      falseBlock.debug(System.err, 2)
+      throw new RuntimeException("unrecognized conditional branch")
+  }
+
+  def structCond(entry: Block, exit: Block): (Cond, Block, Block, Block) = {
+    val cond = entry match {
+      case BranchBlock(_, cond) => cond
+      case _ => throw new IllegalArgumentException
+    }
+    val nord = entry.ordinal
+    val xord = exit.ordinal
+    val nBlocks = xord - nord
+    val subseqBlocks = (((nord + 1) until xord) map blocks).toList
+    val ifBlocks = (subseqBlocks takeWhile { blk =>
+      if ((BranchBlock unapply blk).isDefined)
+	! (blk.immediatelyDominated.nonEmpty &&
+	  (blk.immediatelyDominated.init exists (_.successors.isEmpty)))
+      else false
+    } ) match {
+      case Nil => Nil
+      case blocks =>
+	//termination case for nested ifs:
+	//blk0 and blk1 do not share the same postdominator (including None
+	//which means exit) or,
+	//each of blk0.succs are neither immediately dominated by blk1
+	//                       nor gain dominance from blk1
+	val idx = ((entry :: blocks) zip blocks) indexWhere {
+	  case (blk0, blk1) =>
+	    blk0.immediatePostdominator != blk1.immediatePostdominator ||
+	    (blk0.successors intersect
+	      (blk1.immediatelyDominated ++ blk1.dominanceFrontier)).isEmpty
+	}
+	//if no terminate case, all blocks are contiguous (whatever that means)
+	//otherwise just chop off the tail -- it will be nested
+	if (idx < 0) blocks else blocks take idx
+    }
+    val lastIfBlock = ifBlocks.lastOption getOrElse entry
+    val falseBlock = blocks(nord + 1 + ifBlocks.length)
+    val trueBlock = lastIfBlock.controlExit.get
+
+    (combConds(entry, cond, ifBlocks, falseBlock),
+     lastIfBlock, falseBlock, trueBlock)
   }
 
   /* This function structures a sequence of blocks from entry..exit into an AST
@@ -131,52 +215,14 @@ class MethodDecl(val modifiers: List[Symbol],
    *
    * This function is experimental.
    */
-  def structIf(entry: Block,
-	       exit: Block,
-	       cond: Cond): (List[Stmt], Option[Block]) = {
+  def structIf(entry: Block, exit: Block): (List[Stmt], Option[Block]) = {
     { debugIndent += 2 }
 
-    val init = entry match {
-      case IfBlock(_, init, _) => init
-    }
+    val (condx, lastIf, thenEntry, thenExit) = structCond(entry, exit)
 
-    val nord = entry.ordinal
-    val xord = exit.ordinal
-    val nBlocks = xord - nord
-    val nDomRet = entry.immediatelyDominated match {
-      case Nil => 0
-      case idomd => (idomd.init filter (_.successors.isEmpty)).length
-    }
-    val subseqBlocks = (((nord + 1) until xord) map blocks).toList
-    val ifBlocks = (subseqBlocks takeWhile {
-      case IfBlock(block, _, _) =>
-	! (block.immediatelyDominated.nonEmpty &&
-	   (block.immediatelyDominated.init exists (_.successors.isEmpty)))
-      case _ => false
-    } ) match {
-      case Nil => Nil
-      case blocks =>
-	//termination case for nested ifs
-	//each of blk0.succs are neither immediately dominated by blk1
-	//                       nor gain dominance from blk1
-	val idx = ((entry :: blocks) zip blocks) indexWhere {
-	  case (blk0, blk1) =>
-	    (blk0.successors intersect
-	      (blk1.immediatelyDominated ++ blk1.dominanceFrontier)).isEmpty
-	}
-	//if no term. case, all blocks are contiguous (whatever that means)
-	//otherwise just chop off the tail -- it will be nested
-	if (idx < 0) blocks else blocks take idx
-    }
-
-    val lastIf = ifBlocks.lastOption getOrElse entry
-    val thenEntry = blocks(nord + 1 + ifBlocks.length)
-    val condx = combConds(entry, cond, ifBlocks, thenEntry)
-    val thenExit = controlExit(lastIf).get
-
-    { debug("*structIf* #"+ nord +"-#"+ xord)
-      debug("*structIf* ifBlocks=")
-      (entry :: ifBlocks) foreach (_.debug(System.out, debugIndent))
+    {
+      debug("*structIf* lastIf=")
+      lastIf.debug(System.out, debugIndent)
       debug("*structIf* thenEntry=")
       thenEntry.debug(System.out, debugIndent)
       debug("*structIf* thenExit=")
@@ -193,6 +239,12 @@ class MethodDecl(val modifiers: List[Symbol],
       trailing0 foreach (_.debug(System.out, debugIndent))
     }
 
+    val (init, cond) = entry match { case BranchBlock(init, cond) => (init, cond) }
+    val nDomRet = entry.immediatelyDominated match {
+      case Nil => 0
+      case idomd => (idomd.init filter (_.successors.isEmpty)).length
+    }
+
     val ifOnly = trailing0 match {
       case None => true
       case Some(_) if nDomRet > 0 => true
@@ -205,8 +257,8 @@ class MethodDecl(val modifiers: List[Symbol],
       thenStruct match {
 	case (stmts, None) =>
 	  (If(condx, Then(stmts)), trailing0)
-	case (stmts, opt) =>
-	  (If(condx, Then(stmts)), opt)
+	case (stmts, trailing) =>
+	  (If(condx, Then(stmts)), trailing)
       }
     } else {
       val elseEntry = trailing0.get
@@ -253,40 +305,6 @@ class MethodDecl(val modifiers: List[Symbol],
 	  }
       }
     } else (init :+ stmt, None)
-  }
-
-  def combConds(entry: Block,
-		cond: Cond,
-		ifBlocks: List[Block],
-		thenEntry: Block): Cond = ifBlocks match {
-    case Nil => cond.invert
-    case IfBlock(next, init, cond1) :: rest =>
-      val succs = entry.successors
-      val sect = succs intersect next.successors
-      //LHA
-      if (sect exists (_.ordinal < thenEntry.ordinal))
-	combConds(next,
-		  if (succs contains thenEntry) Or(cond, cond1)
-		  else And(cond.invert, cond1), rest, thenEntry)
-      //RHA
-      else
-	if (succs contains thenEntry)
-	  Or(cond, combConds(next, cond1, rest, thenEntry))
-	else
-	  And(cond.invert, combConds(next, cond1, rest, thenEntry))
-    case _ =>
-      System.err.println("ERROR")
-      System.err.println(" entry=")
-      entry.debug(System.err, 2)
-      System.err.println(" ifs=")
-      ifBlocks foreach {
-	_.debug(System.err, 2)
-      }
-      System.err.println(" thenEntry=")
-      thenEntry.debug(System.err, 2)
-      throw new RuntimeException("unrecognized if-structure entry="+ entry +
-				 " ifs="+ (ifBlocks mkString ", ") +
-				 " thenEntry="+ thenEntry)
   }
 
   def out(ps: java.io.PrintStream, indent: Int) {
