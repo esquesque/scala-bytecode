@@ -8,6 +8,15 @@ object while_while_break extends scala.bytecode.test.ASTCase {
   val maxLocals = 2
   val name = "while_while_break"
   val desc = "(ZZ)V"
+
+  /* outer:
+   * while (var_0) {
+   *   while (var_1) {
+   *     foo.bar();
+   *     break outer;
+   *   }
+   * }
+   */
   val insns = {
     val (lbl0, lbl1, lbl2) = (label(), label(), label())
     insnList(

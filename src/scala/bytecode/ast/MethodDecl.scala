@@ -81,17 +81,33 @@ class MethodDecl(val modifiers: List[Symbol],
     } else {
       val backEdgesIn = entry.edgesIn filter (_._2 == Back)
 
-      if (backEdgesIn.nonEmpty) {
-	val loopBlocks = backEdgesIn map (_._1)
-	debug("*struct* loopBlocks=")
-	loopBlocks foreach (_.debug(System.out, debugIndent))
-	//structLoop(entry, exit.get, loopBlocks)
-	throw new RuntimeException
-      } else {
-	entry match {
-	  case BranchBlock(_, cond) => structIf(entry, exit.get)
+      backEdgesIn match {
+	case Nil => entry match {
+	  case BranchBlock(_, cond) => structBranch(entry, exit.get)
 	  case _ => (entry.body, None)
 	}
+	case backEdge :: Nil =>
+	  val loopBlock = backEdge._1
+	  debug("*struct* loopBlock=")
+	  loopBlock.debug(System.out, debugIndent)
+	  structLoop(entry, exit.get, loopBlock :: Nil)
+	  throw new RuntimeException
+	case backEdges =>
+	  val loopBlocks = backEdges map (_._1)
+	  debug("*struct* loopBlocks=")
+	  loopBlocks foreach (_.debug(System.out, debugIndent))
+	  val (cond, lastBranch, loopEntry, loopExit) = structCond(entry, exit.get)
+
+	  {
+	    debug("*structLoop* lastBranch=")
+	    lastBranch.debug(System.out, debugIndent)
+	    debug("*structLoop* loopEntry=")
+	    loopEntry.debug(System.out, debugIndent)
+	    debug("*structLoop* loopExit=")
+	    loopExit.debug(System.out, debugIndent)
+	  }
+
+	  throw new RuntimeException
       }
     }
 
@@ -117,7 +133,7 @@ class MethodDecl(val modifiers: List[Symbol],
     }
 
     val (stmts, tryTrailing) = entry match {
-      case BranchBlock(_, cond) if tcs.nonEmpty => structIf(entry, exit)
+      case BranchBlock(_, cond) if tcs.nonEmpty => structBranch(entry, exit)
       case _ => (entry.body, None)
     }
     val handlerBlocks = handlerIdcs map (idx =>
@@ -215,17 +231,17 @@ class MethodDecl(val modifiers: List[Symbol],
    *
    * This function is experimental.
    */
-  def structIf(entry: Block, exit: Block): (List[Stmt], Option[Block]) = {
+  def structBranch(entry: Block, exit: Block): (List[Stmt], Option[Block]) = {
     { debugIndent += 2 }
 
     val (condx, lastIf, thenEntry, thenExit) = structCond(entry, exit)
 
     {
-      debug("*structIf* lastIf=")
+      debug("*structBranch* lastIf=")
       lastIf.debug(System.out, debugIndent)
-      debug("*structIf* thenEntry=")
+      debug("*structBranch* thenEntry=")
       thenEntry.debug(System.out, debugIndent)
-      debug("*structIf* thenExit=")
+      debug("*structBranch* thenExit=")
       thenExit.debug(System.out, debugIndent)
     }
 
@@ -235,11 +251,12 @@ class MethodDecl(val modifiers: List[Symbol],
       case (_, Some(t)) => controlExit(t)
     }
 
-    { debug("*structIf* trailing0=")
+    { debug("*structBranch* trailing0=")
       trailing0 foreach (_.debug(System.out, debugIndent))
     }
 
     val (init, cond) = entry match { case BranchBlock(init, cond) => (init, cond) }
+
     val nDomRet = entry.immediatelyDominated match {
       case Nil => 0
       case idomd => (idomd.init filter (_.successors.isEmpty)).length
@@ -264,9 +281,9 @@ class MethodDecl(val modifiers: List[Symbol],
       val elseEntry = trailing0.get
       val elseExit = controlExit(elseEntry).get
 
-      { debug("*structIf* elseEntry=")
+      { debug("*structBranch* elseEntry=")
         elseEntry.debug(System.out, debugIndent)
-        debug("*structIf* elseExit=")
+        debug("*structBranch* elseExit=")
         elseExit.debug(System.out, debugIndent)
       }
 
@@ -275,9 +292,9 @@ class MethodDecl(val modifiers: List[Symbol],
       val elseTrailing = if (elseExit == exit && elseEntryJumps) elseStruct._2
 			 else Some(elseExit)
 
-      { debug("*structIf* elseTrailing=")
+      { debug("*structBranch* elseTrailing=")
         elseTrailing foreach (_.debug(System.out, debugIndent))
-        debug("*structIf* __elseTrailing__=")
+        debug("*structBranch* __elseTrailing__=")
         elseStruct._2 foreach println
       }
 
@@ -305,6 +322,31 @@ class MethodDecl(val modifiers: List[Symbol],
 	  }
       }
     } else (init :+ stmt, None)
+  }
+
+  def structLoop(entry: Block, exit: Block, backBlocks: List[Block]) {
+    { debugIndent += 2 }
+
+    entry match {
+      case BranchBlock(init, _) =>
+	val (cond, lastBranch, loopEntry, loopExit) = structCond(entry, exit)
+
+	{
+	  debug("*structLoop* lastBranch=")
+	  lastBranch.debug(System.out, debugIndent)
+	  debug("*structLoop* loopEntry=")
+	  loopEntry.debug(System.out, debugIndent)
+	  debug("*structLoop* loopExit=")
+	  loopExit.debug(System.out, debugIndent)
+	}
+
+	val loopStruct = struct(loopEntry, Some(exit))
+      case _ =>
+	//do
+	throw new RuntimeException
+    }
+
+    { debugIndent -= 2 }
   }
 
   def out(ps: java.io.PrintStream, indent: Int) {
