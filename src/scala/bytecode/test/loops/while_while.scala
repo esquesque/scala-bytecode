@@ -26,7 +26,13 @@ object while_while extends scala.bytecode.test.ASTCase {
   }
 
   val test: Test = {
-    case Exec(If(True(_), Then(_)) :: Label(_) :: Return(_) :: Nil) => true
+    case Exec(Label(_) ::
+	      While(True(_),
+		    Label(_) ::
+		    While(True(_), _) :: Nil) ::
+	      Label(_) ::
+	      Return(_) ::
+	      Nil) => true
     case tree => false
   }
 }

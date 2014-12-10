@@ -86,28 +86,11 @@ class MethodDecl(val modifiers: List[Symbol],
 	  case BranchBlock(_, cond) => structBranch(entry, exit.get)
 	  case _ => (entry.body, None)
 	}
-	case backEdge :: Nil =>
-	  val loopBlock = backEdge._1
-	  debug("*struct* loopBlock=")
-	  loopBlock.debug(System.out, debugIndent)
-	  structLoop(entry, exit.get, loopBlock :: Nil)
-	  throw new RuntimeException
-	case backEdges =>
+        case backEdges =>
 	  val loopBlocks = backEdges map (_._1)
 	  debug("*struct* loopBlocks=")
 	  loopBlocks foreach (_.debug(System.out, debugIndent))
-	  val (cond, lastBranch, loopEntry, loopExit) = structCond(entry, exit.get)
-
-	  {
-	    debug("*structLoop* lastBranch=")
-	    lastBranch.debug(System.out, debugIndent)
-	    debug("*structLoop* loopEntry=")
-	    loopEntry.debug(System.out, debugIndent)
-	    debug("*structLoop* loopExit=")
-	    loopExit.debug(System.out, debugIndent)
-	  }
-
-	  throw new RuntimeException
+	  structLoop(entry, exit.get, loopBlocks)
       }
     }
 
@@ -203,12 +186,14 @@ class MethodDecl(val modifiers: List[Symbol],
       case Nil => Nil
       case blocks =>
 	//termination case for nested ifs:
+	//blk1 has outgoing back edges or,
 	//blk0 and blk1 do not share the same postdominator (including None
 	//which means exit) or,
 	//each of blk0.succs are neither immediately dominated by blk1
 	//                       nor gain dominance from blk1
 	val idx = ((entry :: blocks) zip blocks) indexWhere {
 	  case (blk0, blk1) =>
+	    (blk1.edgesOut exists (_._2 == Back)) ||
 	    blk0.immediatePostdominator != blk1.immediatePostdominator ||
 	    (blk0.successors intersect
 	      (blk1.immediatelyDominated ++ blk1.dominanceFrontier)).isEmpty
@@ -324,14 +309,17 @@ class MethodDecl(val modifiers: List[Symbol],
     } else (init :+ stmt, None)
   }
 
-  def structLoop(entry: Block, exit: Block, backBlocks: List[Block]) {
+  def structLoop(entry: Block,
+		 exit: Block,
+		 backBlocks: List[Block]): (List[Stmt], Option[Block]) = {
     { debugIndent += 2 }
 
-    entry match {
+    val (stmts, trailing) = entry match {
       case BranchBlock(init, _) =>
 	val (cond, lastBranch, loopEntry, loopExit) = structCond(entry, exit)
 
 	{
+	  debug("*structLoop* loopCond="+ cond)
 	  debug("*structLoop* lastBranch=")
 	  lastBranch.debug(System.out, debugIndent)
 	  debug("*structLoop* loopEntry=")
@@ -340,13 +328,27 @@ class MethodDecl(val modifiers: List[Symbol],
 	  loopExit.debug(System.out, debugIndent)
 	}
 
-	val loopStruct = struct(loopEntry, Some(exit))
+	val x = (loopEntry.immediateDominator map (idom =>
+		  loopEntry.predecessors.length == 1 &&
+		  loopEntry.predecessors(0) == idom) getOrElse false) &&
+		(loopEntry.immediatePostdominator map (ipdom =>
+		  loopEntry.successors.length == 1 &&
+		  loopEntry.successors(0) == ipdom) getOrElse false)
+
+	val (body, trailing) =
+	  if ((backBlocks contains loopEntry) && !x)
+	    structLoop(loopEntry, exit, Nil)
+	  else
+	    struct(loopEntry, Some(loopExit))
+	(init :+ While(cond, body), Some(loopExit))
       case _ =>
 	//do
 	throw new RuntimeException
     }
 
     { debugIndent -= 2 }
+
+    (stmts, trailing)
   }
 
   def out(ps: java.io.PrintStream, indent: Int) {

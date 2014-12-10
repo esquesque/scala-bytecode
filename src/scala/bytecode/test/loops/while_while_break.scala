@@ -9,32 +9,34 @@ object while_while_break extends scala.bytecode.test.ASTCase {
   val name = "while_while_break"
   val desc = "(ZZ)V"
 
-  /* outer:
-   * while (var_0) {
+  /* while (var_0) {
    *   while (var_1) {
    *     foo.bar();
-   *     break outer;
+   *     break;
    *   }
    * }
    */
   val insns = {
-    val (lbl0, lbl1, lbl2) = (label(), label(), label())
+    val (lbl0, lbl1) = (label(), label())
     insnList(
       lbl0,
       iload(0),
-      ifeq(lbl2),
-      iload(1),
       ifeq(lbl1),
+      iload(1),
+      ifeq(lbl0),
       invokestatic("foo", "bar", "()V"),
       goto(lbl0),
       lbl1,
-      goto(lbl0),
-      lbl2,
       vreturn())
   }
 
   val test: Test = {
-    case Exec(If(True(_), Then(_)) :: Label(_) :: Return(_) :: Nil) => true
+    case Exec(Label(_) ::
+	      While(True(_),
+		    While(True(_), _) :: Nil) ::
+	      Label(_) ::
+	      Return(_) ::
+	      Nil) => true
     case tree => false
   }
 }

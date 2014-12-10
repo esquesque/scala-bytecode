@@ -7,5 +7,6 @@ package object loops {
     while_if ::
     while_while ::
     while_while_break ::
+    while_while_break_outer ::
     Nil
 }

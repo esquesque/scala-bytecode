@@ -24,7 +24,8 @@ object while_and extends scala.bytecode.test.ASTCase {
   }
 
   val test: Test = {
-    case Exec(If(And(True(_), True(_)), _) ::
+    case Exec(Label(_) ::
+	      While(And(True(_), True(_)), _) ::
 	      Label(_) ::
 	      Return(_) ::
 	      Nil) => true

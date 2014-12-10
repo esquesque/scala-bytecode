@@ -17,20 +17,21 @@
 
 package scala.bytecode.ast
 
-case class While(cond: Cond, stmts: Stmt*) extends Stmt {
+case class While(cond: Cond, body: List[Stmt]) extends Stmt {
   def out(ps: java.io.PrintStream, indent: Int) {
     ps append " "* indent
-    ps append "if ("
+    ps append "while ("
     ps append (cond show false)
-    ps append ") "
-    stmts.toList match {
-      case theN :: Nil =>
-	theN.out(ps, if (theN.isInstanceOf[Goto]) 0 else indent)
-      case theN :: elses =>
-	theN.out(ps, indent)
-	elses foreach { elsE =>
-	  elsE.out(ps, indent)
-	}
+    ps append ')'
+    if (body.isEmpty) ps append ';'
+    else {
+      ps append " {\n"
+      body foreach { stmt =>
+	stmt.out(ps, indent + 2)
+	ps append '\n'
+      }
+      ps append " "* indent
+      ps append '}'
     }
     ps.flush
   }
