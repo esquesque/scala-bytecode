@@ -6,6 +6,7 @@ package object loops {
     while_and ::
     while_if ::
     while_while ::
+    while_while__if ::
     while_while_break ::
     while_while_break_outer ::
     Nil

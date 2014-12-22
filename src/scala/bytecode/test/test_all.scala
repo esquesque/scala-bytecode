@@ -7,6 +7,7 @@ object test_all extends Suite {
 		   AnchorFloatingStmts :: Nil
   val cases = dups.cases ++
 	      ifs.cases ++
+	      loops.cases ++
 	      ternaries.cases ++
 	      try_catches.cases
 }

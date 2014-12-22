@@ -210,6 +210,30 @@ class MethodDecl(val modifiers: List[Symbol],
      lastIfBlock, falseBlock, trueBlock)
   }
 
+  def concatTrailing(entry: Block,
+		     init: List[Stmt],
+		     stmt: Stmt,
+		     trailingOpt: Option[Block]): (List[Stmt], Option[Block]) = {
+    trailingOpt match {
+      case Some(trailing) =>
+	struct(trailing, trailing.controlExit) match {
+	  case (trailingStmts, nextTrailing) =>
+	    { debug("*struct* nextTrailing=")
+	      nextTrailing foreach (_.debug(System.out, debugIndent))
+	    }
+	    if ((entry.dominanceFrontier intersect
+		 trailing.dominanceFrontier).nonEmpty) {
+	      { debug("*struct* CONCAT trailing") }
+	      ((init :+ stmt) ++ trailingStmts, nextTrailing)
+	    } else {
+	      { debug("*struct* PASS trailing") }
+	      (init :+ stmt, Some(trailing))
+	    }
+	}
+      case None => (init :+ stmt, None)
+    }
+  }
+
   /* This function structures a sequence of blocks from entry..exit into an AST
    * of type If representative of those blocks.
    * If may be composed as If(Cond, Then) or If(Cond, Then, Else).
@@ -291,22 +315,7 @@ class MethodDecl(val modifiers: List[Symbol],
 
     { debugIndent -= 2 }
 
-    if (trailing.isDefined) {
-      struct(trailing.get, controlExit(trailing.get)) match {
-	case (trailingStmts, nextTrailing) =>
-	  { debug("*struct* nextTrailing=")
-	    nextTrailing foreach (_.debug(System.out, debugIndent))
-	  }
-	  if ((entry.dominanceFrontier intersect
-		 trailing.get.dominanceFrontier).nonEmpty) {
-	    { debug("*struct* CONCAT trailing") }
-	    ((init :+ stmt) ++ trailingStmts, nextTrailing)
-	  } else {
-	    { debug("*struct* PASS trailing") }
-	    (init :+ stmt, trailing)
-	  }
-      }
-    } else (init :+ stmt, None)
+    concatTrailing(entry, init, stmt, trailing)
   }
 
   def structLoop(entry: Block,
@@ -340,7 +349,20 @@ class MethodDecl(val modifiers: List[Symbol],
 	    structLoop(loopEntry, exit, Nil)
 	  else
 	    struct(loopEntry, Some(loopExit))
-	(init :+ While(cond, body), Some(loopExit))
+	debug("*structLoop* trailing=")
+	trailing foreach (_.debug(System.out, debugIndent))
+
+	trailing match {
+	  case Some(trailing0) if trailing0 != entry && trailing0 != exit =>
+	    struct(trailing0, Some(exit)) match {
+	      case (stmts, trailing1) =>
+		concatTrailing(entry, init, While(cond, body ++ stmts), trailing1)
+		//((init :+ While(cond, body ++ stmts)), trailing1)
+	    }
+	  case t =>
+	    concatTrailing(entry, init, While(cond, body), Some(exit))
+	    //((init :+ While(cond, body)), Some(loopExit))
+	}
       case _ =>
 	//do
 	throw new RuntimeException
