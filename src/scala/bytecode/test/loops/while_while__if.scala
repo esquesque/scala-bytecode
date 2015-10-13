@@ -36,7 +36,9 @@ object while_while__if extends scala.bytecode.test.ASTCase {
 		    Label(_) ::
 		    While(True(_), _) ::
 		    Label(_) ::
-		    If(True(_), _) :: Nil) ::
+		    If(True(_), _) ::
+		    Label(_) ::
+		    Goto(_, _) :: Nil) ::
 	      Label(_) ::
 	      Return(_) ::
 	      Nil) => true

@@ -32,7 +32,9 @@ class MethodDecl(val modifiers: List[Symbol],
   val returnType: Type = Type.getReturnType(desc)
 
   var debugIndent: Int = 0
-  def debug(str: String) { println((" "* debugIndent) + str) }
+  def debug(str: String) {
+    println((" "* debugIndent) + str)
+  }
 
   def controlExit(entry: Block): Option[Block] = entry.controlExit
 
@@ -117,7 +119,7 @@ class MethodDecl(val modifiers: List[Symbol],
 
     val (stmts, tryTrailing) = entry match {
       case BranchBlock(_, cond) if tcs.nonEmpty => structBranch(entry, exit)
-      case _ => (entry.body, None)
+      case _ => (entry.body ++ endBlock.body, None)
     }
     val handlerBlocks = handlerIdcs map (idx =>
       (blocks find (_.bound._1 == idx)).get)
@@ -130,8 +132,7 @@ class MethodDecl(val modifiers: List[Symbol],
 
     { debugIndent -= 2 }
 
-    (Try(stmts ++ endBlock.body,
-	 (catchesAndTrailings map (_._1)): _*),
+    (Try(stmts, (catchesAndTrailings map (_._1)): _*),
      handlerBlocks.last.controlExit)
   }
 
@@ -144,12 +145,12 @@ class MethodDecl(val modifiers: List[Symbol],
       val succs = entry.successors
       val next = ifBlocks.head
       val sect = succs intersect next.successors
-      //LHA
+      //left-hand
       if (sect exists (_.ordinal < falseBlock.ordinal))
 	combConds(next,
 		  if (succs contains falseBlock) Or(cond, cond1)
 		  else And(cond.invert, cond1), rest, falseBlock)
-      //RHA
+      //right-hand
       else
 	if (succs contains falseBlock)
 	  Or(cond, combConds(next, cond1, rest, falseBlock))
@@ -214,19 +215,29 @@ class MethodDecl(val modifiers: List[Symbol],
 		     init: List[Stmt],
 		     stmt: Stmt,
 		     trailingOpt: Option[Block]): (List[Stmt], Option[Block]) = {
+    { debug("*concatTrailing* entry=")
+      entry.debug(System.out, debugIndent)
+      debug("*concatTrailing* trailing=")
+      trailingOpt foreach (_.debug(System.out, debugIndent))
+    }
     trailingOpt match {
       case Some(trailing) =>
 	struct(trailing, trailing.controlExit) match {
 	  case (trailingStmts, nextTrailing) =>
-	    { debug("*struct* nextTrailing=")
+	    { debug("*concatTrailing* nextTrailing=")
 	      nextTrailing foreach (_.debug(System.out, debugIndent))
 	    }
-	    if ((entry.dominanceFrontier intersect
-		 trailing.dominanceFrontier).nonEmpty) {
-	      { debug("*struct* CONCAT trailing") }
+	    val edf = entry.dominanceFrontier
+	    val tdf = trailing.dominanceFrontier
+	    if ((edf intersect tdf).nonEmpty || (edf.isEmpty && tdf.isEmpty) ||
+		(edf contains entry)) {
+	      //assert(entry.controlExit equals trailing.controlExit)
+
+
+	      { debug("*concatTrailing* CONCAT "+ trailingStmts.mkString(", ")) }
 	      ((init :+ stmt) ++ trailingStmts, nextTrailing)
 	    } else {
-	      { debug("*struct* PASS trailing") }
+	      { debug("*concatTrailing* PASS") }
 	      (init :+ stmt, Some(trailing))
 	    }
 	}
@@ -335,6 +346,8 @@ class MethodDecl(val modifiers: List[Symbol],
 	  loopEntry.debug(System.out, debugIndent)
 	  debug("*structLoop* loopExit=")
 	  loopExit.debug(System.out, debugIndent)
+	  debug("*structLoop* exit=")
+	  exit.debug(System.out, debugIndent)
 	}
 
 	val x = (loopEntry.immediateDominator map (idom =>
@@ -352,17 +365,38 @@ class MethodDecl(val modifiers: List[Symbol],
 	debug("*structLoop* trailing=")
 	trailing foreach (_.debug(System.out, debugIndent))
 
+	if (trailing.isDefined)
+	  println("~~~~~~~~ "+ (loopExit == trailing.get))
+
+	val trailingOpt =
+	  if (loopExit == exit)
+	    Some(exit)
+	  else if (lastBranch.immediatelyDominated contains loopExit)
+	    Some(loopExit)
+	  else
+	    None
+
+	concatTrailing(entry, init, While(cond, body), trailingOpt)
+
+/*        if (loopExit != exit &&
+	    (lastBranch.immediatelyDominated contains loopExit))
+	  concatTrailing(entry, init, While(cond, body), Some(loopExit))
+	else
+	  concatTrailing(entry, init, While(cond, body), Some(exit))*/
+/*
 	trailing match {
 	  case Some(trailing0) if trailing0 != entry && trailing0 != exit =>
 	    struct(trailing0, Some(exit)) match {
-	      case (stmts, trailing1) =>
-		concatTrailing(entry, init, While(cond, body ++ stmts), trailing1)
+	      case (stmts, Some(trailing1)) =>
+		concatTrailing(entry, init, While(cond, body ++ stmts), Some(trailing1))
 		//((init :+ While(cond, body ++ stmts)), trailing1)
+	      case (stmts, None) =>
+		concatTrailing(entry, init, While(cond, body ++ stmts), Some(loopExit))
 	    }
 	  case t =>
 	    concatTrailing(entry, init, While(cond, body), Some(exit))
 	    //((init :+ While(cond, body)), Some(loopExit))
-	}
+	}*/
       case _ =>
 	//do
 	throw new RuntimeException

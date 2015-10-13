@@ -9,19 +9,26 @@ object while_while extends scala.bytecode.test.ASTCase {
   val name = "while_while"
   val desc = "(ZZ)V"
   val insns = {
-    val (lbl0, lbl1, lbl2, lbl3) = (label(), label(), label(), label())
+    val (lbl0, lbl1, lbl2) = (label(), label(), label())
+/*     0: iload_1       
+       1: ifeq          19
+       4: iload_2       
+       5: ifeq          0
+       8: getstatic     #2                  // Field java/lang/System.out:Ljava/io/PrintStream;
+      11: ldc           #3                  // String got ya
+      13: invokevirtual #4                  // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+      16: goto          4
+      19: return  */
     insnList(
       lbl0,
       iload(0),
-      ifeq(lbl3),
+      ifeq(lbl2),
       lbl1,
       iload(1),
-      ifeq(lbl2),
+      ifeq(lbl0),
       invokestatic("foo", "bar", "()V"),
       goto(lbl1),
       lbl2,
-      goto(lbl0),
-      lbl3,
       vreturn())
   }
 

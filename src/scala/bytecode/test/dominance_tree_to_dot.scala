@@ -5,7 +5,7 @@ import scala.bytecode._
 
 object dominance_tree_to_dot {
   def main(args: Array[String]) {
-    val cases = ifs.cases
+    val cases = ifs.cases ++ loops.cases
     val transforms = CollapseTernaryExprs :: AnchorFloatingStmts :: Nil
     var a = 0
     for (c <- cases) {

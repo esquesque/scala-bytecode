@@ -16,6 +16,7 @@ package object ifs {
 //n=1 1-boolean
 //a(1)=1 0b1
     if_then ::
+    if_if__if ::
     if_else ::
     if_elif ::
     if_elif_else ::

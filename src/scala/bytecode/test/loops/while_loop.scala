@@ -23,7 +23,8 @@ object while_loop extends scala.bytecode.test.ASTCase {
 
   val test: Test = {
     case Exec(Label(_) ::
-	      While(True(_), _) ::
+	      While(True(_),
+		    _ :: Goto(_, _) :: Nil) ::
 	      Label(_) ::
 	      Return(_) ::
 	      Nil) => true
