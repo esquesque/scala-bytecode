@@ -6,6 +6,7 @@ src/scala/bytecode/test/*.scala
 src/scala/bytecode/test/dups/*.scala
 src/scala/bytecode/test/ifs/*.scala
 src/scala/bytecode/test/loops/*.scala
+src/scala/bytecode/test/switches/*.scala
 src/scala/bytecode/test/ternaries/*.scala
 src/scala/bytecode/test/try_catches/*.scala
 EOF

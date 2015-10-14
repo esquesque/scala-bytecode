@@ -8,6 +8,7 @@ object test_all extends Suite {
   val cases = dups.cases ++
 	      ifs.cases ++
 	      loops.cases ++
+	      switches.cases ++
 	      ternaries.cases ++
 	      try_catches.cases
 }

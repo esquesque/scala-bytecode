@@ -47,14 +47,24 @@ package object ast {
   object BranchBlock {
     def unapply(block: Block): Option[(List[Stmt], Cond)] = {
       val body = block.body
-      val init = body match {
-	case _ :: Nil => Nil
-	case body => body.init
+      if (body.isEmpty)
+	None
+      else {
+	val init = body match {
+	  case _ :: Nil => Nil
+	  case body => body.init
+	}
+	body.last match {
+	  case If(cond, _) => Some((init, cond))
+	  case _ => None
+	}
       }
-      body.last match {
-	case If(cond, _) => Some((init, cond))
-	case _ => None
-      }
+    }
+  }
+
+  object SwitchBlock {
+    def unapply[V](block: Block): Option[(Expr, List[(V, Goto)], Goto)] = {
+      null
     }
   }
 }

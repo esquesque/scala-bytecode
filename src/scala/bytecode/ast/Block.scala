@@ -268,8 +268,15 @@ class Block(val ordinal: Int,
       case goto(lbl) => mkgoto(lbl)
       //case jsr
       //case ret
-      //case tableswitch(min, max, default, labels) =>
-      //case lookupswitch(default, keys, labels) =>
+      case tableswitch(min, max, default, labels) =>
+	OrdSwitch[Int](f(0),
+		       (min to max).toList zip (
+			 (labels map mkgoto) map (_.targetOrd)),
+		       mkgoto(default).targetOrd)
+      case lookupswitch(default, keys, labels) =>
+	OrdSwitch[Int](f(0),
+		       keys zip ((labels map mkgoto) map (_.targetOrd)),
+		       mkgoto(default).targetOrd)
       case ireturn() => Return(Some(f(0)))
       case lreturn() => Return(Some(f(0)))
       case freturn() => Return(Some(f(0)))
