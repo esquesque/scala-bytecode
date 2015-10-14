@@ -22,7 +22,7 @@ case class OrdSwitch[V](key: Expr,
 			 default: Int) extends Stmt {
   def out(ps: java.io.PrintStream, indent: Int) {
     ps append " "* indent
-    ps append "switch (\n"
+    ps append "switch ("
     ps append (key show false)
     ps append ") {\n"
     matches foreach { case (value, idx) =>
