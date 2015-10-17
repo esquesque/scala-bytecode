@@ -17,14 +17,17 @@
 
 package scala.bytecode.ast
 
-case class Case[V](value: V, body: List[Stmt]) extends Exec {
+case class Case[V](values: List[V], body: List[Stmt]) extends Exec {
   def out(ps: java.io.PrintStream, indent: Int) {
-    ps append "case \n"
-    ps append value.toString
-    ps append ":"
+    values foreach { value =>
+      ps append " "* indent
+      ps append "case "
+      ps append value.toString
+      ps append ":\n"
+    }
     body foreach { stmt =>
-      ps append '\n'
       stmt.out(ps, indent + 2)
+      ps append '\n'
     }
     ps.flush
   }

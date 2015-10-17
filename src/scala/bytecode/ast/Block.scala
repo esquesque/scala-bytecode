@@ -136,7 +136,7 @@ class Block(val ordinal: Int,
       }
   }
 
-  // check-this -> check-arg -> check-phi -> check-idom
+  // check-this -> check-args -> check-phi -> check-idom
   def loadLocal(v: Int): Local = locals(v) match {
     case null if v == 0 && ! (info is 'static) =>
       mklocal(0, 'this, info.owner.desc)
@@ -175,10 +175,12 @@ class Block(val ordinal: Int,
 
   def labelId(insn: Insn): Symbol = Symbol(insnName(insn))
 
-  private def mkgoto(lbl: Insn): Goto = Goto(labelId(lbl), {
+  def ordByLabel(lbl: Insn): Int = {
     val x = info.instructions.indexOf(lbl)
     cfg.bounds indexWhere { case (y, _) => y == x }
-  } )
+  }
+
+  private def mkgoto(lbl: Insn): Goto = Goto(labelId(lbl), ordByLabel(lbl))
 
   private def mkcond1(cond: (Expr, Expr) => Cond, expr: Expr): Cond = expr match {
     case Cmp(left, right) => cond(left, right)
@@ -269,14 +271,13 @@ class Block(val ordinal: Int,
       //case jsr
       //case ret
       case tableswitch(min, max, default, labels) =>
-	OrdSwitch[Int](f(0),
-		       (min to max).toList zip (
-			 (labels map mkgoto) map (_.targetOrd)),
-		       mkgoto(default).targetOrd)
+	OrdSwitch(f(0),
+		  (min to max).toList zip (labels map ordByLabel),
+		  ordByLabel(default))
       case lookupswitch(default, keys, labels) =>
-	OrdSwitch[Int](f(0),
-		       keys zip ((labels map mkgoto) map (_.targetOrd)),
-		       mkgoto(default).targetOrd)
+	OrdSwitch(f(0),
+		  keys zip (labels map ordByLabel),
+		  ordByLabel(default))
       case ireturn() => Return(Some(f(0)))
       case lreturn() => Return(Some(f(0)))
       case freturn() => Return(Some(f(0)))

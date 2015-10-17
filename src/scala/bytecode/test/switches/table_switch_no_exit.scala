@@ -3,10 +3,10 @@ package scala.bytecode.test.switches
 import scala.bytecode.asm._
 import scala.bytecode.ast._
 
-object table_switch extends scala.bytecode.test.ASTCase {
+object table_switch_no_exit extends scala.bytecode.test.ASTCase {
   val maxStack = 1
   val maxLocals = 1
-  val name = "table_switch"
+  val name = "table_switch_no_exit"
   val desc = "(I)V"
   val insns = {
     val lbl0 = label()
@@ -15,37 +15,43 @@ object table_switch extends scala.bytecode.test.ASTCase {
     val lbl3 = label()
     val lbl4 = label()
     val lbl5 = label()
+    val lbl6 = label()
     val default = label()
     val exit = label()
     insnList(
       iload(0),
-      tableswitch(0xa, 0xf, default, List(lbl0, lbl1, lbl2, lbl3, lbl4, lbl5)),
+      tableswitch(0xa, 0xf, default, List(lbl0, lbl1, lbl2, lbl3, lbl4, lbl5, default)),
       lbl0,
       invokestatic("foo", "bar", "()V"),
-      goto(exit),
+      vreturn(),
       lbl1,
       invokestatic("foo", "baz", "()V"),
-      goto(exit),
+      vreturn(),
       lbl2,
       invokestatic("foo", "qux", "()V"),
-      goto(exit),
+      vreturn(),
       lbl3,
       invokestatic("foo", "quux", "()V"),
-      goto(exit),
+      vreturn(),
       lbl4,
       invokestatic("foo", "doop", "()V"),
-      goto(exit),
+      vreturn(),
       lbl5,
       invokestatic("foo", "dodo", "()V"),
-      goto(exit),
+      vreturn(),
       default,
       invokestatic("foo", "thud", "()V"),
+      lbl6,
+      iload(0),
+      ifeq(exit),
+      invokestatic("infinite", "loop", "()V"),
+      goto(lbl6),
       exit,
       vreturn())
   }
 
   val test: Test = {
-    case Exec(Switch(_, cases, _) :: _ :: Return(None) :: Nil) =>
+    case Exec(Switch(_, cases, _) :: _ :: While(_, _) :: _ :: _ :: Nil) =>
       cases.length == 6
     case tree => false
   }

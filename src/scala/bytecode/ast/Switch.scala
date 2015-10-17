@@ -22,15 +22,11 @@ case class Switch[V](key: Expr,
 		     default: Default) extends Stmt {
   def out(ps: java.io.PrintStream, indent: Int) {
     ps append " "* indent
-    ps append "switch (\n"
+    ps append "switch ("
     ps append (key show false)
     ps append ") {\n"
-    cases foreach { c =>
-      c.out(ps, indent + 2)
-      ps append '\n'
-    }
+    cases foreach (_.out(ps, indent + 2))
     default.out(ps, indent + 2)
-    ps append '\n'
     ps append " "* indent
     ps append '}'
     ps.flush

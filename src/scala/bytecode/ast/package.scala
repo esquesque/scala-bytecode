@@ -37,16 +37,16 @@ package object ast {
   val Null = Push(null)
 
   object JumpBlock {
-    def unapply(block: Block): Option[Block] = block.body.last match {
-      case Goto(_, _) => Some(block)
-      case If(_, _) => Some(block)
+    def unapply(b: Block): Option[Block] = b.body.last match {
+      case Goto(_, _) => Some(b)
+      case If(_, _) => Some(b)
       case _ => None
     }
   }
 
   object BranchBlock {
-    def unapply(block: Block): Option[(List[Stmt], Cond)] = {
-      val body = block.body
+    def unapply(b: Block): Option[(List[Stmt], Cond)] = {
+      val body = b.body
       if (body.isEmpty)
 	None
       else {
@@ -63,8 +63,24 @@ package object ast {
   }
 
   object SwitchBlock {
-    def unapply[V](block: Block): Option[(Expr, List[(V, Goto)], Goto)] = {
-      null
+    def unapply(b: Block): Option[(List[Stmt], Expr, List[(List[Int], Int)], Int)] = {
+      val body = b.body
+      if (body.isEmpty)
+	None
+      else {
+	val init = body match {
+	  case _ :: Nil => Nil
+	  case body => body.init
+	}
+	body.last match {
+	  case OrdSwitch(key, matches, default) =>
+	    val matchMap = matches.groupBy(_._2)
+	    val ords = matchMap.keys.toList.sorted
+	    val ordCases = ords map (ord => (matchMap(ord) map (_._1), ord))
+	    Some((init, key, ordCases, default))
+	  case _ => None
+	}
+      }
     }
   }
 }

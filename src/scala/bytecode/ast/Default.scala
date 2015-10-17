@@ -19,6 +19,7 @@ package scala.bytecode.ast
 
 case class Default(body: List[Stmt]) extends Exec {
   def out(ps: java.io.PrintStream, indent: Int) {
+    ps append " "* indent
     ps append "default:\n"
     body foreach { stmt =>
       stmt.out(ps, indent + 2)

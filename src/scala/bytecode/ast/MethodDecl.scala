@@ -85,8 +85,16 @@ class MethodDecl(val modifiers: List[Symbol],
 
       backEdgesIn match {
 	case Nil => entry match {
-	  case BranchBlock(_, cond) => structBranch(entry, exit.get)
-	  case _ => (entry.body, None)
+	  case BranchBlock(_, cond) =>
+	    structBranch(entry, exit.get)
+	  case SwitchBlock(_, _, _, _) =>
+	    structSwitch(entry, exit.get)
+	  case _ =>
+	    val ipdom = entry.immediatePostdominator
+	    if (ipdom.isDefined && (entry.immediatelyDominated contains ipdom.get))
+	      (entry.body, exit)
+	    else
+	      (entry.body, None)
 	}
         case backEdges =>
 	  val loopBlocks = backEdges map (_._1)
@@ -328,6 +336,43 @@ class MethodDecl(val modifiers: List[Symbol],
 
     concatTrailing(entry, init, stmt, trailing)
   }
+//TODO
+  def structSwitch(entry: Block,
+		   exit: Block): (List[Stmt], Option[Block]) = {
+    { debugIndent += 2 }
+
+    val (init, key, ordCases, defaultOrd) = entry match {
+      case SwitchBlock(i, k, ocs, dord) => (i, k, ocs, dord)
+      case _ => throw new IllegalArgumentException
+    }
+    val nonDfltOrdCases = ordCases filter (_._2 != defaultOrd)
+
+    {
+      nonDfltOrdCases foreach {
+	case (values, ord) =>
+	  debug("*structSwitch* values="+ (values mkString ","))
+	  debug("*structSwitch* caseBlock=")
+	  blocks(ord).debug(System.out, debugIndent)
+      }
+      debug("*structSwitch* defaultBlock=")
+      blocks(defaultOrd).debug(System.out, debugIndent)
+    }
+
+    val cases = nonDfltOrdCases map {
+      case (values, ord) => Case(values, struct(blocks(ord), Some(exit))._1)
+    }
+    val defaultBlock = blocks(defaultOrd)
+    val (default, trailingOpt) = if (defaultOrd == exit.ordinal) {
+      val x = struct(defaultBlock, defaultBlock.controlExit)
+      println(x._2)
+      (Default(x._1), x._2)
+    } else
+      (Default(struct(defaultBlock, Some(exit))._1), Some(exit))
+
+    { debugIndent -= 2 }
+
+    concatTrailing(entry, init, Switch(key, cases, default), trailingOpt)
+  }
 
   def structLoop(entry: Block,
 		 exit: Block,
@@ -398,7 +443,7 @@ class MethodDecl(val modifiers: List[Symbol],
 	    //((init :+ While(cond, body)), Some(loopExit))
 	}*/
       case _ =>
-	//do
+	//???
 	throw new RuntimeException
     }
 

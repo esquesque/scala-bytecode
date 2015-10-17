@@ -17,9 +17,9 @@
 
 package scala.bytecode.ast
 
-case class OrdSwitch[V](key: Expr,
-			 matches: List[(V, Int)],
-			 default: Int) extends Stmt {
+case class OrdSwitch(key: Expr,
+		     matches: List[(Int, Int)],
+		     default: Int) extends Stmt {
   def out(ps: java.io.PrintStream, indent: Int) {
     ps append " "* indent
     ps append "switch ("
