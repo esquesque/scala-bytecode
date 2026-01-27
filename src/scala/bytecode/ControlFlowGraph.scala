@@ -123,7 +123,7 @@ abstract class ControlFlowGraph(val method: MethodInfo) {
             f(ssn :: nt, m, n)
           } else if (pre0(sn.n) >= 0 && post0(sn.n) >= 0) {
 	    eks(node.n -> sidx) =
-	      if (pre0(node.n) > pre0(sn.n)) Cross else Forward
+	      if (pre0(node.n) > pre0(sn.n)) Cross else Forward //???????
             f(ssn :: nt, m, n)
           } else {
 	    pre0(sn.n) = m
